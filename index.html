@@ -64,15 +64,26 @@ header.board{
 .icon-btn:disabled{opacity:.3;cursor:default}
 .clock-wrap{display:flex;flex-direction:column;align-items:center;gap:2px}
 .clock{font-family:var(--display);font-size:78px;line-height:1;color:var(--accent);background:none;border:none;padding:0 8px;display:flex}
-.clock i{font-style:normal;display:inline-block;width:.64em;text-align:center}
-.clock i.c{width:.3em}
+.clock i{font-style:normal;display:inline-block;width:.84em;text-align:center}
+.clock i.c{width:.36em}
 .clock.paused{opacity:.55}
 .clock-sub{color:var(--muted);font-size:13px}
 .clock-sub b{color:var(--text);font-family:var(--display);font-size:17px;font-weight:400}
 .board-right{display:flex;justify-content:flex-end;gap:10px;align-items:center}
-.go{min-width:150px;height:64px;border-radius:14px;border:none;font-family:var(--display);font-size:26px;background:var(--accent);color:var(--navy)}
+.go{min-width:140px;padding:0 18px;height:64px;border-radius:14px;border:none;font-family:var(--display);font-size:24px;background:var(--accent);color:var(--navy)}
 .go.running{background:var(--red);color:#fff}
-.undo{height:64px;padding:0 16px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-weight:600}
+.excl-btn{height:64px;padding:0 16px;border-radius:14px;border:2px solid var(--red);background:rgba(233,51,35,.15);font-weight:700;display:flex;align-items:center;gap:10px}
+.excl-btn .cards{position:relative;width:24px;height:20px}
+.excl-btn .cards::before,.excl-btn .cards::after{content:"";position:absolute;width:13px;height:18px;border-radius:2px;top:1px}
+.excl-btn .cards::before{left:1px;background:#f2c200;transform:rotate(-10deg)}
+.excl-btn .cards::after{left:10px;background:var(--red);transform:rotate(10deg)}
+.excl-btn[aria-pressed="true"]{background:var(--red);color:#fff}
+.actionbar.pickbar{border-color:var(--red)}
+.view-banner{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:rgba(217,250,122,.1);border:1px solid var(--accent);border-radius:12px;padding:10px 14px;margin-bottom:14px}
+.view-banner .vb-t{flex:1;min-width:220px;font-size:14px}
+.view-banner .vb-t b{font-family:var(--display);font-weight:400;font-size:20px;text-transform:uppercase;display:block}
+.view-banner .btn{height:44px}
+.undo{display:flex;align-items:center;gap:6px;white-space:nowrap;height:64px;padding:0 16px;border-radius:14px;border:1px solid var(--line);background:var(--surface-2);font-weight:600}
 .undo:disabled{opacity:.35;cursor:default}
 
 /* ---------- Vues ---------- */
@@ -94,11 +105,11 @@ main{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
   background:var(--surface);border:2px solid var(--line);
   display:grid;grid-template-columns:1fr auto;grid-template-rows:auto auto 1fr;column-gap:8px;align-content:start;
 }
-.tile .n{font-family:var(--display);font-size:42px;line-height:1}
-.tile .name{grid-column:1/3;font-weight:600;font-size:14px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px}
+.tile .n{font-family:var(--display);font-size:40px;line-height:1}
+.tile .name{grid-column:1/3;font-weight:600;font-size:17px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px}
 .tile .name em{font-style:normal;color:var(--muted);font-weight:400;font-size:12px;margin-left:4px}
 .tile .times{grid-column:1/3;display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;gap:6px;align-self:end}
-.tile .tt{font-family:var(--display);font-size:26px}
+.tile .tt{font-family:var(--display);font-size:20px}
 .tile .sub{font-size:12px;color:var(--muted);text-align:right;white-space:nowrap}
 /* zone de clic exclusion */
 .hot{
@@ -124,6 +135,7 @@ main{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
 .tile.ready .tt{color:var(--accent);font-size:20px}
 .tile.dq{opacity:.5;cursor:default}
 .tile.dq .tt{color:#ff8a7f;font-size:18px}
+.tile.pick{border-color:var(--red);border-style:dashed;box-shadow:0 0 0 3px rgba(233,51,35,.35)}
 .tile.sel{border-color:var(--accent);box-shadow:0 0 0 3px rgba(217,250,122,.45)}
 .tile .badge{position:absolute;left:12px;bottom:-9px;font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:#f2c200;color:#2a2000}
 @keyframes pulse{50%{box-shadow:0 0 0 4px rgba(217,250,122,.3)}}
@@ -247,7 +259,8 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 @media (max-width:820px){
   header.board{grid-template-columns:1fr auto;grid-template-areas:"left right" "clock clock"}
   .board-left{grid-area:left}.board-right{grid-area:right}.clock-wrap{grid-area:clock}
-  .go{min-width:110px;height:56px;font-size:22px}.undo{height:56px}
+  .go{min-width:110px;height:56px;font-size:22px}.undo,.excl-btn{height:56px}
+  .undo .lbl,.excl-btn .lbl{display:none}
   .clock{font-size:64px}.logo{height:44px}
 }
 @media (max-width:480px){
@@ -276,7 +289,8 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
     <div class="clock-sub">Temps de jeu total <b id="gameTotal">0:00</b></div>
   </div>
   <div class="board-right">
-    <button class="undo" id="undoBtn" disabled>↶ Annuler</button>
+    <button class="undo" id="undoBtn" disabled aria-label="Annuler la dernière action">↶<span class="lbl"> Annuler</span></button>
+    <button class="excl-btn" id="exclBtn" aria-pressed="false"><span class="cards"></span><span class="lbl">Exclusion</span></button>
     <button class="go" id="goBtn">DÉMARRER</button>
   </div>
 </header>
@@ -286,7 +300,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
     <div class="zone">
       <div class="zone-head">
         <h2>Sur le terrain</h2><span class="count" id="courtCount">0/7</span>
-        <span class="hint">Touche un joueur pour le sortir · zone cartons pour une exclusion</span>
+        <span class="hint">Touche un joueur pour le sortir · bouton Exclusion en haut pour une sanction</span>
         <span class="warn" id="courtWarn"></span>
       </div>
       <div class="grid court" id="courtGrid"></div>
@@ -301,12 +315,14 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   </section>
 
   <section class="view" id="view-stats" aria-label="Temps de jeu">
+    <div class="view-banner" id="viewBanner" hidden></div>
     <div class="kpis" id="kpis"></div>
     <div class="toolbar">
       <div class="seg" role="group" aria-label="Tri">
         <button id="sortTime" aria-pressed="true">Par temps</button>
         <button id="sortNum" aria-pressed="false">Par numéro</button>
       </div>
+      <button class="btn" id="histBtn">Historique des matchs</button>
       <span style="flex:1"></span>
       <button class="btn" id="copyBtn">Copier le résumé</button>
       <button class="btn blue" id="csvBtn">Stats CSV (Excel)</button>
@@ -345,9 +361,9 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
       <button class="btn danger" id="newMatch">Nouveau match</button>
     </div>
     <h3 class="sec">Sauvegarde</h3>
-    <p class="hint-p">Les équipes sont enregistrées sur cet appareil. Sauvegarde-les dans un fichier pour les retrouver sur un autre iPad ou les transmettre à un collègue.</p>
+    <p class="hint-p">Les équipes sont enregistrées sur cet appareil. Sauvegarde-les avec l'historique des matchs dans un fichier pour les retrouver sur un autre iPad ou les transmettre à un collègue.</p>
     <div class="row-actions">
-      <button class="btn blue" id="backupBtn">Sauvegarder les équipes</button>
+      <button class="btn blue" id="backupBtn">Sauvegarder équipes et historique</button>
       <label class="btn file-btn" for="restoreIn">Restaurer depuis un fichier</label>
       <input type="file" id="restoreIn" accept=".json,application/json" hidden>
     </div>
@@ -369,7 +385,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.0';
+const APP_VERSION='1.1';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -386,6 +402,7 @@ function exampleRoster(){
 function newMatch(prev){
   return {opp:prev?prev.opp:'',date:new Date().toISOString().slice(0,10),
     periodMin:prev?prev.periodMin:30,otMin:prev?prev.otMin:5,maxOn:prev?prev.maxOn:7,
+    id:'m'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
     period:0,el:[0,0,0,0],running:false,live:false,kick:null,vOff:0,last:Date.now(),on:[],excl:[],st:{},log:[]};
 }
 let S=null;
@@ -396,10 +413,18 @@ if(!S.teams){S.teams=[{id:'t1',name:S.example?'Équipe exemple':'Mon équipe',ro
 function T(){return S.teams.find(t=>t.id===S.teamId)||S.teams[0];}
 S.teamId=T().id;S.roster=T().roster;
 if(S.m.live===undefined){S.m.live=false;S.m.kick=null;S.m.vOff=0;}
+if(!S.m.id)S.m.id='m'+Date.now().toString(36);
+if(!S.history)S.history=[];
+let VIEW=null, pick=null;
 let undo=[], sel=null, sortBy='time', view='match', lastSave=0, rv=0;
 
 function save(){const t=T();t.roster=S.roster;t.periodMin=S.m.periodMin;t.otMin=S.m.otMin;t.maxOn=S.m.maxOn;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){} lastSave=Date.now();}
 function P(id){return S.roster.find(p=>p.id===id);}
+function M(){return VIEW?VIEW.m:S.m;}
+function R(){return VIEW?VIEW.roster:S.roster;}
+function PV(id){return R().find(p=>p.id===id);}
+function pnameV(id){const p=PV(id);return p?'#'+p.num+' '+p.name:'?';}
+function gM(){return M().el.reduce((a,b)=>a+b,0);}
 function st(id){
   let s=S.m.st[id];
   if(!s){s=S.m.st[id]={per:[0,0,0,0],entries:0,twoMin:0,dq:false,card:null,starter:false,inAt:null,outAt:null};}
@@ -439,6 +464,7 @@ function commit(){
       const endWall=m.last+d;
       logEv('stop',null,null,endWall);
       if(m.live){logEv('pend',null,null,endWall);m.live=false;}
+      archiveCurrent();
       const nxt=m.period<3?PERIODS[m.period+1]:null;
       toast('Fin de la '+PERIODS[m.period],nxt?'Passer en '+nxt:null,nxt?()=>changePeriod(1):null,true);
     }
@@ -509,7 +535,7 @@ function changePeriod(dir){
   commit();
   const m=S.m;if(m.running)return;
   const p=m.period+dir;if(p<0||p>3)return;
-  if(m.live){logEv('pend');m.live=false;}
+  if(m.live){logEv('pend');m.live=false;archiveCurrent();}
   m.period=p;undo=[];logEv('period');
   hideToast();save();renderAll();
 }
@@ -547,10 +573,8 @@ function tileHTML(p,kind){
   const s=S.m.st[p.id];
   const cls=['tile',kind];
   if(sel&&sel.id===p.id)cls.push('sel');
-  let hot='';
-  if(kind==='court'||kind==='bench')hot='<button class="hot" data-hot="excl" aria-label="Exclusion de #'+esc(p.num)+'"><span class="cards"></span>EXCL.</button>';
-  else if(kind==='ready')hot='<button class="hot txt" data-hot="dismiss" aria-label="Laisser au banc">Banc</button>';
-  else hot='<span></span>';
+  if(pick&&(kind==='court'||kind==='bench'))cls.push('pick');
+  const hot='<span></span>';
   const badge=s&&s.twoMin&&!s.dq&&(kind==='court'||kind==='bench')?'<span class="badge">2 min ×'+s.twoMin+'</span>':'';
   return '<div class="'+cls.join(' ')+'" role="button" tabindex="0" data-id="'+p.id+'" data-kind="'+kind+'" aria-label="#'+esc(p.num)+' '+esc(p.name)+'">'+
     '<span class="n">'+esc(p.num)+'</span>'+hot+
@@ -561,7 +585,7 @@ function tileHTML(p,kind){
 function sortedRoster(){return S.roster.slice().sort((a,b)=>(+a.num||999)-(+b.num||999));}
 function renderMatch(force){
   const m=S.m;
-  const key=JSON.stringify([m.on,m.excl.map(e=>e.id+(e.rem>0?'a':'r')+(e.dq?'d':'')),sel,rv,
+  const key=JSON.stringify([pick,m.on,m.excl.map(e=>e.id+(e.rem>0?'a':'r')+(e.dq?'d':'')),sel,rv,
     Object.keys(m.st).filter(k=>m.st[k].dq||m.st[k].twoMin).map(k=>k+m.st[k].twoMin+m.st[k].dq)]);
   if(!force&&key===structKey){updateTimes();return;}
   structKey=key;
@@ -602,8 +626,15 @@ function updateTimes(){
     el.textContent=s&&s.entries?'':'pas entré';
   });
 }
+const EXCL_LABEL={'2min':'2 minutes',red:'Carton rouge',blue:'Carton bleu'};
 function renderActionBar(){
   const bar=$('actionbar');
+  bar.classList.toggle('pickbar',!!pick);
+  $('exclBtn').setAttribute('aria-pressed',String(!!pick));
+  if(pick){
+    bar.innerHTML='<span class="msg"><b>'+EXCL_LABEL[pick]+'</b> : touche le joueur exclu (terrain ou banc)</span><button class="btn" data-a="cancel">Annuler</button>';
+    bar.classList.add('show');return;
+  }
   if(!sel){bar.classList.remove('show');bar.innerHTML='';return;}
   const p=P(sel.id);if(!p){sel=null;bar.classList.remove('show');return;}
   bar.innerHTML='<span class="msg"><b>#'+esc(p.num)+' '+esc(p.name)+'</b> prêt à entrer : touche le joueur du terrain qui sort</span>'+
@@ -612,6 +643,12 @@ function renderActionBar(){
 }
 function onTile(id,kind){
   const m=S.m;
+  if(pick){
+    if(kind==='excl'||kind==='dq'){toast('Ce joueur est déjà exclu');return;}
+    const x=pick;pick=null;
+    if(x==='2min')doTwoMin(id);else doDisq(id,x);
+    return;
+  }
   if(kind==='excl'){toast('Exclusion en cours : ce joueur pourra entrer à la fin des 2 min');return;}
   if(kind==='dq'){toast('Joueur disqualifié');return;}
   if(kind==='court'){
@@ -623,50 +660,50 @@ function onTile(id,kind){
   if(m.on.length<capacity()){doEnter(id);return;}
   sel={id};renderMatch(true);
 }
-function onHot(id,what){
-  if(what==='dismiss'){doDismissExcl(id);return;}
-  openExclDlg(id);
-}
 function gridClick(e){
   const t=e.target.closest('.tile');if(!t)return;
-  const h=e.target.closest('.hot');
-  if(h){e.stopPropagation();onHot(t.dataset.id,h.dataset.hot);return;}
   onTile(t.dataset.id,t.dataset.kind);
 }
 function gridKey(e){
   if(e.key!=='Enter'&&e.key!==' ')return;
-  const t=e.target.closest('.tile');if(!t||e.target.closest('.hot'))return;
+  const t=e.target.closest('.tile');if(!t)return;
   e.preventDefault();onTile(t.dataset.id,t.dataset.kind);
 }
 ['courtGrid','benchGrid'].forEach(g=>{$(g).addEventListener('click',gridClick);$(g).addEventListener('keydown',gridKey);});
-$('actionbar').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;sel=null;renderMatch(true);});
+$('actionbar').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;sel=null;pick=null;renderMatch(true);});
 
-function openExclDlg(id){
-  const p=P(id),s=st(id);
-  const n=s.twoMin;
-  openDlg('<h4>Exclusion · #'+esc(p.num)+' '+esc(p.name)+'</h4>'+
-    '<p>Le joueur quitte le terrain et l\'équipe joue 2 min en infériorité numérique.</p>'+
+function openExclDlg(){
+  if(pick){pick=null;renderMatch(true);return;}
+  openDlg('<h4>Exclusion</h4>'+
+    '<p>1. Choisis la sanction. 2. Touche ensuite le joueur exclu, sur le terrain ou sur le banc. L\'équipe joue 2 min en infériorité numérique.</p>'+
     '<div class="excl-choices">'+
-      '<button data-x="2min"><span class="card-ico t">2\'</span><span><b>2 minutes</b><span>'+(n?n+(n>1?' exclusions déjà':' exclusion déjà')+' · ':'')+(n>=2?'la 3e entraîne la disqualification':'exclusion temporaire')+'</span></span></button>'+
+      '<button data-x="2min"><span class="card-ico t">2\'</span><span><b>2 minutes</b><span>Exclusion temporaire · la 3e entraîne la disqualification</span></span></button>'+
       '<button data-x="red"><span class="card-ico r"></span><span><b>Carton rouge</b><span>Disqualification · 2 min d\'infériorité</span></span></button>'+
       '<button data-x="blue"><span class="card-ico b"></span><span><b>Carton bleu</b><span>Disqualification avec rapport · 2 min d\'infériorité</span></span></button>'+
     '</div>'+
     '<div class="btns"><button class="btn" data-close>Annuler</button></div>');
   $('dialog').querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{
-    closeDlg();const x=b.dataset.x;
-    if(x==='2min')doTwoMin(id);else doDisq(id,x);
+    closeDlg();pick=b.dataset.x;sel=null;if(view!=='match')showView('match');renderMatch(true);
   });
 }
+$('exclBtn').addEventListener('click',openExclDlg);
 
 /* ---------- Rendu : stats ---------- */
 function statRows(){
-  const rows=S.roster.map(p=>{const s=S.m.st[p.id]||{per:[0,0,0,0],entries:0,twoMin:0,dq:false,starter:false};
+  const rows=R().map(p=>{const s=M().st[p.id]||{per:[0,0,0,0],entries:0,twoMin:0,dq:false,starter:false};
     return {p,s,tot:s.per.reduce((a,b)=>a+b,0)};});
   rows.sort(sortBy==='time'?(a,b)=>b.tot-a.tot||(+a.p.num)-(+b.p.num):(a,b)=>(+a.p.num||999)-(+b.p.num||999));
   return rows;
 }
 function renderStats(){
-  const m=S.m,g=gameMs(),rows=statRows();
+  const m=M(),g=gM(),rows=statRows();
+  const vb=$('viewBanner');
+  if(VIEW){vb.hidden=false;vb.innerHTML='<span class="vb-t">Match archivé<b>'+esc(VIEW.team)+(m.opp?' vs '+esc(m.opp):'')+'</b>'+esc(fmtDate(m.date))+' · '+fmt(g)+' joués</span>'+
+    '<button class="btn danger" id="vbDel">Supprimer ce match</button><button class="btn primary" id="vbBack">Revenir au match en cours</button>';
+    $('vbBack').onclick=()=>{VIEW=null;renderStats();};
+    $('vbDel').onclick=()=>{const r=VIEW;confirmDlg('Supprimer ce match de l\'historique ?',r.team+(r.m.opp?' vs '+r.m.opp:'')+' · '+fmtDate(r.m.date)+'. Exporte-le avant si besoin.','Supprimer',()=>{
+      S.history=S.history.filter(h=>h.id!==r.id);VIEW=null;save();renderStats();toast('Match supprimé');});};
+  }else{vb.hidden=true;vb.innerHTML='';}
   const used=rows.filter(r=>r.s.entries>0).length;
   const subs=m.log.filter(l=>l.t==='sub'||l.t==='in').length-rows.filter(r=>r.s.starter).length;
   const ex=rows.reduce((a,r)=>a+r.s.twoMin,0);
@@ -682,7 +719,7 @@ function renderStats(){
   rows.forEach(r=>{
     const pct=g?Math.round(r.tot/g*100):0;
     const w=maxT?Math.round(r.tot/maxT*120):0;
-    const on=m.on.includes(r.p.id);
+    const on=!VIEW&&m.on.includes(r.p.id);
     h+='<tr><td class="num">'+esc(r.p.num)+'</td><td class="l">'+esc(r.p.name)+
       (r.s.starter?'<span class="chip t">T</span>':'')+(on?'<span class="chip on">en jeu</span>':'')+(r.s.dq?'<span class="chip r">'+(r.s.card==='blue'?'BLEU':'DQ')+'</span>':'')+
       '</td><td class="l">'+esc(r.p.pos)+'</td><td>'+fmt(r.s.per[0])+'</td><td>'+fmt(r.s.per[1])+'</td>'+
@@ -695,7 +732,7 @@ function renderStats(){
   $('log').innerHTML=L.length?L.map(logLine).join(''):'<li class="empty">Aucune rotation pour l\'instant.</li>';
 }
 function kpi(v,l){return '<div class="kpi"><div class="v">'+esc(v)+'</div><div class="l">'+esc(l)+'</div></div>';}
-function pn(id){return esc(pname(id));}
+function pn(id){return esc(pnameV(id));}
 function logLine(l){
   const when='<span class="when">'+PERIODS[l.p]+' '+fmtClock(l.c)+'</span>';
   let t='';
@@ -714,18 +751,19 @@ $('sortNum').onclick=()=>{sortBy='num';$('sortNum').setAttribute('aria-pressed',
 
 /* ---------- Exports ---------- */
 const q=v=>{v=String(v==null?'':v);return /[;"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
-function fileBase(){return (S.m.opp?S.m.opp.replace(/[^\w\-]+/g,'-')+'-':'')+(S.m.date||'match');}
+function fileBase(){const m=M();return (m.opp?m.opp.replace(/[^\w\-]+/g,'-')+'-':'')+(m.date||'match');}
+function teamV(){return VIEW?VIEW.team:T().name;}
 function summaryText(){
-  const m=S.m,g=gameMs();
-  let t='Temps de jeu'+(m.opp?' vs '+m.opp:'')+' ('+fmtDate(m.date)+') — '+fmt(g)+' joués\n';
+  const m=M(),g=gM();
+  let t='Temps de jeu · '+teamV()+(m.opp?' vs '+m.opp:'')+' ('+fmtDate(m.date)+') — '+fmt(g)+' joués\n';
   statRows().forEach(r=>{if(!r.tot&&!r.s.entries)return;
     t+='#'+r.p.num+' '+r.p.name+' ('+r.p.pos+') : '+fmt(r.tot)+' — MT1 '+fmt(r.s.per[0])+' / MT2 '+fmt(r.s.per[1])+
       ((r.s.per[2]+r.s.per[3])?' / Prol. '+fmt(r.s.per[2]+r.s.per[3]):'')+' — '+r.s.entries+' entrée'+(r.s.entries>1?'s':'')+(r.s.twoMin?' — '+r.s.twoMin+'×2 min':'')+'\n';});
   return t;
 }
 function statsCsv(){
-  const m=S.m,g=gameMs();
-  let c='﻿Match;'+q(m.opp||'')+';'+q(fmtDate(m.date))+'\n';
+  const m=M(),g=gM();
+  let c='﻿Match;'+q(teamV())+';'+q(m.opp||'')+';'+q(fmtDate(m.date))+'\n';
   c+='N°;Joueur;Poste;Titulaire;1re MT;2e MT;Prol. 1;Prol. 2;Total;Total (s);% du match;Entrées;2 min;Disqualifié\n';
   statRows().forEach(r=>{c+=[q(r.p.num),q(r.p.name),q(r.p.pos),r.s.starter?'oui':'',fmt(r.s.per[0]),fmt(r.s.per[1]),fmt(r.s.per[2]),fmt(r.s.per[3]),
     fmt(r.tot),Math.round(r.tot/1000),g?Math.round(r.tot/g*100):0,r.s.entries,r.s.twoMin,r.s.dq?(r.s.card==='blue'?'carton bleu':'oui'):''].join(';')+'\n';});
@@ -733,7 +771,7 @@ function statsCsv(){
   m.log.forEach(l=>{
     const ev={sub:'Changement',in:'Entrée',out:'Sortie','2min':'2 min',red:'Carton rouge',blue:'Carton bleu',period:'Début de période',pend:'Fin de période'}[l.t];
     if(!ev)return;
-    c+=[PERIODS[l.p],fmtClock(l.c),Math.round(l.g/1000),ev,q(l.id?pname(l.id):''),q(l.id2?pname(l.id2):'')].join(';')+'\n';
+    c+=[PERIODS[l.p],fmtClock(l.c),Math.round(l.g/1000),ev,q(l.id?pnameV(l.id):''),q(l.id2?pnameV(l.id2):'')].join(';')+'\n';
   });
   return c;
 }
@@ -741,10 +779,10 @@ function statsCsv(){
    depuis le coup d'envoi + décalage vidéo), plus les changements, exclusions et fins de période. */
 function hhmmss(w){const d=new Date(w);return [d.getHours(),d.getMinutes(),d.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':');}
 function dartfishCsv(offMs){
-  const m=S.m;if(m.kick==null)return null;
+  const m=M();if(m.kick==null)return null;
   const pos=w=>Math.max(0,Math.round(w-m.kick+offMs));
   const rows=[],open={},on=new Set();let live=false,lastStop=null;
-  const pl=id=>P(id)||{num:'',name:'?',pos:''};
+  const pl=id=>PV(id)||{num:'',name:'?',pos:''};
   const openS=(id,l)=>{open[id]={w:l.w,p:l.p,c:l.c};};
   const closeS=(id,w)=>{const o=open[id];if(!o)return;delete open[id];const p=pl(id);
     rows.push({name:'#'+p.num+' '+p.name,w:o.w,dur:Math.max(1000,w-o.w),cat:'Présence terrain',j:p.name,n:p.num,pos:p.pos,out:'',per:PERIODS[o.p],c:fmtClock(o.c)});};
@@ -782,8 +820,15 @@ function fmtOff(ms){const t=Math.round(ms/1000),h=Math.floor(t/3600),mn=Math.flo
   return (h?h+':'+String(mn).padStart(2,'0'):mn)+':'+String(s).padStart(2,'0');}
 
 /* Sur iPad : feuille de partage (Enregistrer dans Fichiers, AirDrop, Mail…) ; ailleurs : téléchargement. */
+let downloads=null;
+try{if(window.claude&&window.claude.use){window.claude.use('downloads').then(d=>{downloads=d;}).catch(()=>{});}}catch(e){}
 function offerFile(filename,data,title,mime){
   mime=mime||'text/csv';
+  if(downloads){
+    downloads.save({filename,data}).then(()=>toast('Fichier enregistré')).catch(err=>{
+      if(err&&err.code==='declined')return;showTextDlg(title,data,'Copie le contenu et colle-le dans un fichier texte.');});
+    return;
+  }
   const blob=new Blob([data],{type:mime});
   let file=null;try{file=new File([blob],filename,{type:mime});}catch(e){}
   if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
@@ -809,7 +854,7 @@ $('copyBtn').addEventListener('click',()=>{
 });
 $('csvBtn').addEventListener('click',()=>offerFile('temps-de-jeu-'+fileBase()+'.csv',statsCsv(),'Stats CSV'));
 $('dfBtn').addEventListener('click',()=>{
-  const m=S.m;
+  const m=M();
   if(m.kick==null){toast('Lance le chrono au coup d\'envoi pour pouvoir exporter vers Dartfish');return;}
   openDlg('<h4>Export Dartfish</h4>'+
     '<p>Un événement par passage de chaque joueur sur le terrain (catégorie « Présence terrain »), plus les changements, exclusions et fins de période. Position et Duration sont en millisecondes de temps réel, mesurées depuis le coup d\'envoi ('+hhmmss(m.kick)+').</p>'+
@@ -822,6 +867,45 @@ $('dfBtn').addEventListener('click',()=>{
   $('dfCopy').onclick=()=>{const c=get();if(c==null)return;
     try{navigator.clipboard.writeText(c).then(()=>{closeDlg();toast('CSV Dartfish copié');},()=>showTextDlg('CSV Dartfish',c));}catch(e){showTextDlg('CSV Dartfish',c);}};
 });
+
+/* ---------- Historique des matchs ---------- */
+function archiveCurrent(){
+  if(!matchHasData())return;
+  const m=JSON.parse(JSON.stringify(S.m));m.running=false;
+  const used=new Set(Object.keys(m.st));m.log.forEach(l=>{if(l.id)used.add(l.id);if(l.id2)used.add(l.id2);});
+  const roster=S.roster.filter(p=>used.has(p.id)).map(p=>({id:p.id,num:p.num,name:p.name,pos:p.pos}));
+  const rec={id:m.id,team:T().name,saved:Date.now(),roster,m};
+  const i=S.history.findIndex(h=>h.id===rec.id);
+  if(i>=0)S.history[i]=rec;else S.history.push(rec);
+}
+function resetMatch(prev){commit();archiveCurrent();S.m=newMatch(prev);undo=[];sel=null;pick=null;}
+function histTotal(r){return r.m.el.reduce((a,b)=>a+b,0);}
+function renderHistList(){
+  const el=$('hlist');if(!el)return;
+  const norm=x=>String(x).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+  const qv=norm(($('histSearch').value||'').trim());
+  const L=S.history.filter(r=>!qv||norm(r.team+' '+(r.m.opp||'')+' '+fmtDate(r.m.date)).includes(qv))
+    .sort((a,b)=>(b.m.date||'').localeCompare(a.m.date||'')||(b.saved-a.saved));
+  el.innerHTML=L.length?L.map(r=>'<button class="trow" data-hist="'+r.id+'"><b>'+esc(fmtDate(r.m.date))+' · '+esc(r.team)+(r.m.opp?' vs '+esc(r.m.opp):'')+'</b><span>'+
+    fmt(histTotal(r))+' joués · '+r.roster.length+' joueurs</span></button>').join(''):
+    '<div class="empty">'+(S.history.length?'Aucun match ne correspond.':'Aucun match archivé. Un match est archivé à chaque fin de mi-temps et quand tu commences un nouveau match.')+'</div>';
+}
+function openHistory(){
+  openDlg('<h4>Historique des matchs ('+S.history.length+')</h4>'+
+    '<div class="tsearch"><input id="histSearch" type="search" placeholder="Rechercher (équipe, adversaire, date)" aria-label="Rechercher un match"></div>'+
+    '<div class="tlist" id="hlist"></div>'+
+    '<p>Touche un match pour afficher ses temps de jeu, l\'exporter (CSV, Dartfish) ou le supprimer.</p>'+
+    '<div class="dlg-actions">'+(matchHasData()?'<button class="btn primary" id="histEnd">Terminer et archiver le match en cours</button>':'')+
+    '<span style="flex:1"></span><button class="btn" data-close>Fermer</button></div>');
+  $('dialog').classList.add('wide');
+  renderHistList();
+  $('histSearch').addEventListener('input',renderHistList);
+  $('hlist').addEventListener('click',e=>{const b=e.target.closest('[data-hist]');if(!b)return;
+    VIEW=S.history.find(h=>h.id===b.dataset.hist)||null;closeDlg();showView('stats');});
+  if($('histEnd'))$('histEnd').onclick=()=>{closeDlg();confirmDlg('Terminer le match en cours ?','Il est archivé dans l\'historique et un nouveau match vide est prêt avec la même équipe.','Terminer et archiver',()=>{
+    resetMatch(S.m);save();renderAll();toast('Match archivé dans l\'historique');});};
+}
+$('histBtn').addEventListener('click',openHistory);
 
 /* ---------- Rendu : effectif ---------- */
 let teamSort='recent';
@@ -867,7 +951,7 @@ function openTeams(){
   $('teamDel').onclick=()=>{
     if(S.teams.length<2)return;const t=T();
     confirmDlg('Supprimer « '+t.name+' » ?','L\'équipe et son effectif sont effacés de cet iPad. Le match en cours est remis à zéro.','Supprimer',()=>{
-      S.teams=S.teams.filter(x=>x.id!==t.id);
+      commit();archiveCurrent();S.teams=S.teams.filter(x=>x.id!==t.id);
       S.teamId=S.teams.slice().sort((a,b)=>(b.used||0)-(a.used||0))[0].id;const n=T();S.roster=n.roster;n.used=Date.now();
       S.m=newMatch({opp:'',periodMin:n.periodMin||30,otMin:n.otMin||5,maxOn:n.maxOn||7});
       undo=[];sel=null;rv++;save();renderAll();toast('Équipe supprimée');
@@ -877,10 +961,10 @@ function openTeams(){
 $('teamPick').addEventListener('click',openTeams);
 function matchHasData(){return S.m.log.some(l=>l.t!=='period')||gameMs()>0;}
 function loadTeam(id){
-  const go=()=>{commit();S.teamId=id;const t=T();S.roster=t.roster;t.used=Date.now();
-    S.m=newMatch({opp:'',periodMin:t.periodMin||30,otMin:t.otMin||5,maxOn:t.maxOn||7});
+  const go=()=>{commit();archiveCurrent();S.teamId=id;const t=T();S.roster=t.roster;t.used=Date.now();
+    S.m=newMatch({opp:'',periodMin:t.periodMin||30,otMin:t.otMin||5,maxOn:t.maxOn||7});pick=null;
     undo=[];sel=null;rv++;save();renderAll();toast('Équipe chargée : '+t.name);};
-  if(matchHasData())confirmDlg('Charger « '+(S.teams.find(t=>t.id===id)||{}).name+' » ?','Le match en cours sera remis à zéro. Exporte-le avant si tu veux le garder.','Charger l\'équipe',go);
+  if(matchHasData())confirmDlg('Charger « '+(S.teams.find(t=>t.id===id)||{}).name+' » ?','Le match en cours est archivé dans l\'historique, puis un nouveau match commence.','Charger l\'équipe',go);
   else go();
 }
 function nameDlg(title,value,okLabel,fn){
@@ -926,8 +1010,8 @@ $('addPlayer').onclick=()=>{
   m.periodMin=+$('optLen').value;m.otMin=+$('optOt').value;m.maxOn=+$('optMax').value;
   save();renderHeader();updateTimes();renderTeams();
 }));
-$('newMatch').onclick=()=>confirmDlg('Commencer un nouveau match ?','Les temps de jeu, exclusions et le journal sont remis à zéro. L\'effectif et les réglages sont conservés. Exporte le match en cours avant.','Nouveau match',()=>{
-  S.m=newMatch(S.m);undo=[];sel=null;save();renderAll();showView('match');
+$('newMatch').onclick=()=>confirmDlg('Commencer un nouveau match ?','Le match en cours est archivé dans l\'historique (onglet Temps de jeu), puis remis à zéro. L\'effectif et les réglages sont conservés.','Nouveau match',()=>{
+  resetMatch(S.m);save();renderAll();showView('match');toast('Match précédent archivé dans l\'historique');
 });
 $('importBtn').onclick=()=>{
   openDlg('<h4>Coller une liste</h4><p>Une ligne par joueur : numéro, nom, poste (facultatif). Exemple : <b>7 Dupont ARG</b>. La liste remplace l\'effectif de « '+esc(T().name)+' ».</p>'+
@@ -941,7 +1025,7 @@ $('importBtn').onclick=()=>{
       if(POS.includes(last)&&parts.length>1){pos=last;name=parts.slice(0,-1).join(' ');}
       list.push({id:'p'+(++S.seq),num:mm[1],name,pos});});
     if(!list.length){toast('Aucune ligne reconnue : commence chaque ligne par le numéro');return;}
-    commit();S.roster=list;T().example=false;S.m=newMatch(S.m);undo=[];sel=null;rv++;save();closeDlg();renderAll();
+    commit();archiveCurrent();S.roster=list;T().example=false;S.m=newMatch(S.m);pick=null;undo=[];sel=null;rv++;save();closeDlg();renderAll();
     toast(list.length+' joueurs importés');
   };
 };
@@ -950,8 +1034,9 @@ $('importBtn').onclick=()=>{
 $('backupBtn').onclick=()=>{
   save();
   const data=JSON.stringify({app:'temps-de-jeu-handball',v:1,date:new Date().toISOString(),
-    teams:S.teams.map(t=>({name:t.name,periodMin:t.periodMin,otMin:t.otMin,maxOn:t.maxOn,roster:t.roster.map(p=>({num:p.num,name:p.name,pos:p.pos}))}))},null,1);
-  offerFile('equipes-temps-de-jeu-'+new Date().toISOString().slice(0,10)+'.json',data,'Sauvegarde des équipes','application/json');
+    teams:S.teams.map(t=>({name:t.name,periodMin:t.periodMin,otMin:t.otMin,maxOn:t.maxOn,roster:t.roster.map(p=>({num:p.num,name:p.name,pos:p.pos}))})),
+    history:S.history},null,1);
+  offerFile('sauvegarde-temps-de-jeu-'+new Date().toISOString().slice(0,10)+'.json',data,'Sauvegarde des équipes','application/json');
 };
 $('restoreIn').addEventListener('change',e=>{
   const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;
@@ -971,8 +1056,10 @@ $('restoreIn').addEventListener('change',e=>{
         S.teams.push({id:'t'+(++S.tseq),name:t.name,roster,example:false,periodMin:t.periodMin||30,otMin:t.otMin||5,maxOn:t.maxOn||7});added++;
       }
     });
+    let hAdded=0;
+    if(Array.isArray(d.history))d.history.forEach(h=>{if(h&&h.id&&h.m&&Array.isArray(h.roster)&&!S.history.some(x=>x.id===h.id)){S.history.push(h);hAdded++;}});
     save();renderTeams();
-    toast(added+' équipe'+(added>1?'s':'')+' ajoutée'+(added>1?'s':'')+(updated?', '+updated+' mise'+(updated>1?'s':'')+' à jour':''));
+    toast((hAdded?hAdded+' match'+(hAdded>1?'s':'')+' · ':'')+added+' équipe'+(added>1?'s':'')+' ajoutée'+(added>1?'s':'')+(updated?', '+updated+' mise'+(updated>1?'s':'')+' à jour':''));
   });
 });
 
@@ -1010,6 +1097,8 @@ $('toast').addEventListener('click',e=>{if(e.target.id!=='toastBtn')hideToast();
 
 /* ---------- Navigation ---------- */
 function showView(v){
+  if(v!=='stats')VIEW=null;
+  if(v!=='match')pick=null;
   view=v;
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id==='view-'+v));
   document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===v)));
@@ -1040,7 +1129,7 @@ window.addEventListener('pagehide',()=>{commit();save();});
 
 commit();renderAll();
 window.__tdj={S:()=>S};
-if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')){
+if('serviceWorker' in navigator&&!/claude/.test(location.hostname)&&(location.protocol==='https:'||location.hostname==='localhost')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;
       w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)
