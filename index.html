@@ -157,8 +157,12 @@ main{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
 .btn:disabled{opacity:.35;cursor:default}
 
 /* ---------- Onglets ---------- */
-nav.tabs{display:grid;grid-template-columns:repeat(3,1fr);background:rgba(10,19,80,.92);border-top:2px solid var(--blue);padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs{display:grid;grid-template-columns:repeat(3,1fr) auto;background:rgba(10,19,80,.92);border-top:2px solid var(--blue);padding-bottom:env(safe-area-inset-bottom)}
 nav.tabs button{height:64px;border:none;background:none;font-family:var(--display);font-size:20px;text-transform:uppercase;color:var(--muted)}
+.report-btn{display:flex;align-items:center;gap:10px;margin:8px 12px;height:48px!important;padding:0 18px;border-radius:12px;
+  background:var(--accent)!important;color:var(--navy)!important;font-family:var(--display);font-size:18px;text-transform:uppercase;white-space:nowrap}
+.report-btn svg{width:22px;height:22px;flex:none}
+@media (max-width:600px){.report-btn .lbl{display:none}.report-btn{padding:0 14px}}
 nav.tabs button[aria-selected="true"]{color:var(--accent);box-shadow:inset 0 3px 0 var(--accent)}
 
 /* ---------- Stats ---------- */
@@ -348,6 +352,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
       <label class="f" for="optOt">Prolongation
         <select id="optOt"><option value="5">2 × 5 min</option><option value="3">2 × 3 min</option></select>
       </label>
+      <label class="f" for="optDest">Destinataire du rapport PDF<input id="optDest" placeholder="ex. Groupe WhatsApp Staff U18"></label>
       <label class="f" for="optMax">Joueurs sur le terrain
         <select id="optMax"><option value="7">7 (GB + 6)</option><option value="6">6</option><option value="5">5</option><option value="4">4 (beach)</option></select>
       </label>
@@ -377,15 +382,17 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   <button role="tab" data-view="match" aria-selected="true">Match</button>
   <button role="tab" data-view="stats" aria-selected="false">Temps de jeu</button>
   <button role="tab" data-view="roster" aria-selected="false">Effectif</button>
+  <button class="report-btn" id="reportBtn" aria-label="Envoyer le rapport PDF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg><span class="lbl">Rapport PDF</span></button>
 </nav>
 
 <div class="modal" id="modal" role="dialog" aria-modal="true"><div class="dialog" id="dialog"></div></div>
 <div class="toast" id="toast" role="status"><span id="toastMsg"></span><button id="toastBtn" hidden></button></div>
 
+<script src="lib/jspdf.umd.min.js"></script>
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.1';
+const APP_VERSION='1.2';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -829,11 +836,16 @@ function offerFile(filename,data,title,mime){
       if(err&&err.code==='declined')return;showTextDlg(title,data,'Copie le contenu et colle-le dans un fichier texte.');});
     return;
   }
-  const blob=new Blob([data],{type:mime});
+  const blob=data instanceof Blob?data:new Blob([data],{type:mime});
   let file=null;try{file=new File([blob],filename,{type:mime});}catch(e){}
   if(file&&navigator.canShare&&navigator.canShare({files:[file]})){
     navigator.share({files:[file],title:filename}).then(()=>toast('Fichier partagé')).catch(err=>{
       if(err&&err.name==='AbortError')return;
+      if(err&&err.name==='NotAllowedError'){
+        openDlg('<h4>'+esc(title)+'</h4><p>Le fichier est prêt.</p><div class="btns"><button class="btn" data-close>Annuler</button><button class="btn primary" id="shareAgain">Envoyer</button></div>');
+        $('shareAgain').onclick=()=>{closeDlg();navigator.share({files:[file],title:filename}).catch(e=>{if(e&&e.name!=='AbortError')fallbackDownload(filename,blob,data,title);});};
+        return;
+      }
       fallbackDownload(filename,blob,data,title);
     });
     return;
@@ -866,6 +878,141 @@ $('dfBtn').addEventListener('click',()=>{
   $('dfSave').onclick=()=>{const c=get();if(c==null)return;closeDlg();offerFile('dartfish-'+fileBase()+'.csv',c,'CSV Dartfish');};
   $('dfCopy').onclick=()=>{const c=get();if(c==null)return;
     try{navigator.clipboard.writeText(c).then(()=>{closeDlg();toast('CSV Dartfish copié');},()=>showTextDlg('CSV Dartfish',c));}catch(e){showTextDlg('CSV Dartfish',c);}};
+});
+
+/* ---------- Rapport PDF à l'instant T ---------- */
+const PDFA={};
+function ab2b64(buf){let s='';const b=new Uint8Array(buf);for(let i=0;i<b.length;i+=0x8000)s+=String.fromCharCode.apply(null,b.subarray(i,i+0x8000));return btoa(s);}
+function preloadPdf(){
+  const get=(u)=>fetch(u).then(r=>{if(!r.ok)throw 0;return r.arrayBuffer();});
+  Promise.all([get('assets/poppins-400.ttf'),get('assets/poppins-700.ttf'),get('assets/ffhand.ttf'),get('assets/logo-report.png')]).then(([a,b,c,d])=>{
+    PDFA.reg=ab2b64(a);PDFA.bold=ab2b64(b);PDFA.disp=ab2b64(c);PDFA.logo='data:image/png;base64,'+ab2b64(d);
+  }).catch(()=>{});
+}
+preloadPdf();
+function buildReport(){
+  const J=window.jspdf&&window.jspdf.jsPDF;if(!J)return null;
+  const m=S.m,g=gameMs(),now=new Date();
+  const doc=new J({unit:'mm',format:'a4'});
+  let F='helvetica',FB='helvetica',FD='helvetica';
+  try{if(PDFA.reg){doc.addFileToVFS('P4.ttf',PDFA.reg);doc.addFont('P4.ttf','Poppins','normal');F='Poppins';}
+      if(PDFA.bold){doc.addFileToVFS('P7.ttf',PDFA.bold);doc.addFont('P7.ttf','PoppinsB','normal');FB='PoppinsB';}
+      if(PDFA.disp){doc.addFileToVFS('FF.ttf',PDFA.disp);doc.addFont('FF.ttf','FFHand','normal');FD='FFHand';}}catch(e){}
+  const NAVY=[15,27,99],LIME=[217,250,122],BLUE=[36,72,223],RED=[233,51,35],SKY=[77,169,225],GREY=[110,118,150],INK=[20,26,60];
+  const font=(f,sz,col)=>{doc.setFont(f,'normal');doc.setFontSize(sz);doc.setTextColor.apply(doc,col||INK);};
+  const W=210,L=12,Rx=198;
+  const team=T().name,hm=hhmmss(now.getTime());
+  // bandeau
+  doc.setFillColor.apply(doc,NAVY);doc.rect(0,0,W,32,'F');
+  doc.setFillColor.apply(doc,RED);doc.rect(0,32,W,1.2,'F');doc.setFillColor.apply(doc,BLUE);doc.rect(0,33.2,W,1.2,'F');
+  if(PDFA.logo)try{doc.addImage(PDFA.logo,'PNG',L,5,30,19.4);}catch(e){}
+  font(FD,15,LIME);doc.text('RAPPORT TEMPS DE JEU',47,13.5);
+  font(F,10,[255,255,255]);doc.text(doc.splitTextToSize(team+(m.opp?' vs '+m.opp:'')+' · '+fmtDate(m.date),95)[0],47,21);
+  font(FD,18,[255,255,255]);doc.text(PERIODS[m.period].toUpperCase()+'  '+fmtClock(m.el[m.period]),Rx,14,{align:'right'});
+  font(F,8,[190,200,235]);doc.text('Situation à '+hm+(m.running?' · chrono en cours':' · chrono arrêté'),Rx,22,{align:'right'});
+  let y=42;
+  // indicateurs
+  const rows=S.roster.map(p=>{const s=m.st[p.id]||{per:[0,0,0,0],entries:0,twoMin:0,dq:false,starter:false,inAt:null,outAt:null};return {p,s,tot:s.per.reduce((a,b)=>a+b,0)};})
+    .sort((a,b)=>b.tot-a.tot||(+a.p.num)-(+b.p.num));
+  const used=rows.filter(r=>r.s.entries>0).length;
+  const subs=Math.max(0,m.log.filter(l=>l.t==='sub'||l.t==='in').length-rows.filter(r=>r.s.starter).length);
+  const ex=rows.reduce((a,r)=>a+r.s.twoMin,0);
+  const k=[[fmt(g),'Temps de jeu écoulé'],[used+'/'+rows.length,'Joueurs utilisés'],[String(subs),'Entrées en cours de match'],[String(ex),'Exclusions 2 min']];
+  const kw=(Rx-L-9)/4;
+  k.forEach((v,i)=>{const x=L+i*(kw+3);doc.setFillColor(238,241,252);doc.roundedRect(x,y,kw,17,2,2,'F');
+    font(FD,16,NAVY);doc.text(v[0],x+4,y+8.5);font(F,7.5,GREY);doc.text(v[1],x+4,y+13.5);});
+  y+=24;
+  // situation
+  const onTxt=m.on.map(id=>{const p=P(id);return p?'#'+p.num+' '+p.name:'';}).filter(Boolean).join(' · ')||'personne';
+  font(FB,9,NAVY);doc.text('Sur le terrain ('+m.on.length+'/'+capacity()+')',L,y);
+  font(F,9,INK);const ol=doc.splitTextToSize(onTxt,Rx-L-38);doc.text(ol,L+38,y);y+=ol.length*4.6;
+  const act=m.excl.filter(e=>e.rem>0);
+  if(act.length){font(FB,9,RED);doc.text('Infériorité',L,y);font(F,9,RED);
+    doc.text(act.map(e=>{const p=P(e.id);return (p?'#'+p.num+' '+p.name:'')+' ('+(e.dq?'disqualifié, ':'')+fmt(e.rem+999)+' restantes)';}).join(' · '),L+38,y);y+=4.6;}
+  y+=4;
+  // tableau
+  const ot=m.el[2]>0||m.el[3]>0||m.period>=2;
+  const cols=[{k:'n',t:'N°',w:8},{k:'name',t:'Joueur',w:0},{k:'pos',t:'Poste',w:11},{k:'st',t:'Statut',w:22},{k:'m1',t:'1re MT',w:14,r:1},{k:'m2',t:'2e MT',w:14,r:1}];
+  if(ot)cols.push({k:'pr',t:'Prol.',w:13,r:1});
+  cols.push({k:'tot',t:'Total',w:15,r:1},{k:'pct',t:'% du match',w:ot?20:24},{k:'seq',t:'En cours',w:ot?18:20,r:1},{k:'ent',t:'Entrées',w:12,r:1},{k:'two',t:'2 min',w:9,r:1});
+  const fixed=cols.reduce((a,c)=>a+c.w,0);cols[1].w=(Rx-L)-fixed;
+  let x=L;cols.forEach(c=>{c.x=x;x+=c.w;});
+  const head=()=>{doc.setFillColor.apply(doc,NAVY);doc.rect(L,y,Rx-L,7,'F');font(FB,7,[255,255,255]);
+    cols.forEach(c=>doc.text(c.t,c.r?c.x+c.w-1.5:c.x+1.5,y+4.7,{align:c.r?'right':'left'}));y+=7;};
+  head();
+  const maxT=rows.reduce((a,r)=>Math.max(a,r.tot),0);
+  rows.forEach((r,i)=>{
+    if(y>270){doc.addPage();y=16;head();}
+    const id=r.p.id,on=m.on.includes(id),e=m.excl.find(z=>z.id===id&&z.rem>0);
+    if(i%2){doc.setFillColor(245,247,253);doc.rect(L,y,Rx-L,7,'F');}
+    let stt='Banc',sc=GREY;
+    if(on){stt='Terrain';sc=BLUE;doc.setFillColor(228,236,255);doc.rect(L,y,Rx-L,7,'F');}
+    if(e){stt=e.dq?'Disqualifié':'Exclu '+fmt(e.rem+999);sc=RED;doc.setFillColor(253,232,230);doc.rect(L,y,Rx-L,7,'F');}
+    else if(r.s.dq){stt=r.s.card==='blue'?'Carton bleu':'Disqualifié';sc=RED;}
+    if(on||e){doc.setFillColor.apply(doc,e?RED:BLUE);doc.rect(L,y,1.2,7,'F');}
+    const seq=on?'en jeu '+fmt(g-(r.s.inAt!=null?r.s.inAt:g)):(r.s.outAt!=null?'repos '+fmt(g-r.s.outAt):'—');
+    const pct=g?Math.round(r.tot/g*100):0;
+    const cy=y+4.8;
+    cols.forEach(c=>{
+      const tx=c.r?c.x+c.w-1.5:c.x+1.5,al={align:c.r?'right':'left'};
+      switch(c.k){
+        case 'n':font(FD,10,NAVY);doc.text(String(r.p.num),tx,cy+.3,al);break;
+        case 'name':{const lab=r.p.name+(r.s.starter?' (T)':''),mw=c.w-2.5;let sz=8.5;font(FB,sz,INK);
+          while(doc.getTextWidth(lab)>mw&&sz>6.5){sz-=.5;doc.setFontSize(sz);}
+          let t=lab;if(doc.getTextWidth(t)>mw){while(t.length>3&&doc.getTextWidth(t+'…')>mw)t=t.slice(0,-1);t+='…';}
+          doc.text(t,tx,cy,al);break;}
+        case 'pos':font(F,8,GREY);doc.text(r.p.pos||'',tx,cy,al);break;
+        case 'st':font(FB,7.5,sc);doc.text(stt,tx,cy,al);break;
+        case 'm1':font(F,8.5,INK);doc.text(fmt(r.s.per[0]),tx,cy,al);break;
+        case 'm2':font(F,8.5,INK);doc.text(fmt(r.s.per[1]),tx,cy,al);break;
+        case 'pr':font(F,8.5,INK);doc.text(fmt(r.s.per[2]+r.s.per[3]),tx,cy,al);break;
+        case 'tot':font(FD,10.5,NAVY);doc.text(fmt(r.tot),tx,cy+.3,al);break;
+        case 'pct':{const bw=c.w-11;doc.setFillColor(225,229,245);doc.roundedRect(c.x+1.5,y+2.6,bw,1.8,.9,.9,'F');
+          if(maxT&&r.tot){doc.setFillColor.apply(doc,SKY);doc.roundedRect(c.x+1.5,y+2.6,Math.max(1,bw*r.tot/maxT),1.8,.9,.9,'F');}
+          font(F,7.5,INK);doc.text(pct+'%',c.x+c.w-1.5,cy,{align:'right'});break;}
+        case 'seq':font(F,7.5,on?BLUE:GREY);doc.text(seq,tx,cy,al);break;
+        case 'ent':font(F,8.5,INK);doc.text(String(r.s.entries||0),tx,cy,al);break;
+        case 'two':font(FB,8.5,r.s.twoMin?RED:INK);doc.text(r.s.twoMin?String(r.s.twoMin):'',tx,cy,al);break;
+      }
+    });
+    y+=7;
+  });
+  font(F,7,GREY);doc.text('(T) titulaire · % du match = temps joué / temps de jeu écoulé · « En cours » = durée de la séquence actuelle sur le terrain ou au repos',L,y+4);
+  y+=11;
+  // dernières rotations
+  const ev=m.log.filter(l=>['sub','in','out','2min','red','blue','pend'].includes(l.t)).slice(-14).reverse();
+  if(ev.length){
+    if(y>255){doc.addPage();y=16;}
+    font(FD,13,NAVY);doc.text('DERNIÈRES ROTATIONS',L,y);y+=6;
+    ev.forEach(l=>{
+      if(y>282){doc.addPage();y=16;}
+      font(FD,9.5,GREY);doc.text(PERIODS[l.p].toUpperCase()+' '+fmtClock(l.c),L,y);
+      let t='',col=INK;
+      if(l.t==='sub')t='Entre '+pname(l.id)+'  ·  sort '+pname(l.id2);
+      else if(l.t==='in')t='Entre '+pname(l.id);
+      else if(l.t==='out')t='Sort '+pname(l.id);
+      else if(l.t==='2min'){t='2 min : '+pname(l.id);col=RED;}
+      else if(l.t==='red'){t='Carton rouge : '+pname(l.id);col=RED;}
+      else if(l.t==='blue'){t='Carton bleu : '+pname(l.id);col=RED;}
+      else if(l.t==='pend')t='Fin de la '+PERIODS[l.p];
+      font(F,9,col);doc.text(t,L+30,y);y+=5;
+    });
+  }
+  // pied de page
+  const n=doc.getNumberOfPages();
+  for(let i=1;i<=n;i++){doc.setPage(i);doc.setDrawColor(220,224,240);doc.line(L,287,Rx,287);
+    font(F,7,GREY);doc.text('Temps de jeu handball · rapport du '+fmtDate(m.date)+' généré à '+hm,L,291);doc.text(i+'/'+n,Rx,291,{align:'right'});}
+  const slug=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w]+/g,'-').replace(/^-|-$/g,'');
+  const fname='rapport-'+slug(team)+(m.opp?'-vs-'+slug(m.opp):'')+'-'+slug(PERIODS[m.period])+'-'+fmtClock(m.el[m.period]).replace(':','h')+'.pdf';
+  return {blob:doc.output('blob'),name:fname};
+}
+$('reportBtn').addEventListener('click',()=>{
+  commit();save();
+  let r=null;try{r=buildReport();}catch(e){}
+  if(!r){toast('Impossible de créer le PDF : recharge l\'app avec une connexion puis réessaie');return;}
+  const dest=T().dest;
+  offerFile(r.name,r.blob,'Rapport PDF'+(dest?' pour '+dest:''),'application/pdf');
+  if(dest)toast('Choisis « '+dest+' » dans WhatsApp');
 });
 
 /* ---------- Historique des matchs ---------- */
@@ -980,6 +1127,7 @@ function renderRoster(){
   renderTeams();
   $('exampleNotice').hidden=!T().example;
   $('optOpp').value=m.opp||'';$('optDate').value=m.date||'';
+  $('optDest').value=T().dest||'';
   $('optLen').value=String(m.periodMin);$('optOt').value=String(m.otMin);$('optMax').value=String(m.maxOn);
   $('roster').innerHTML=S.roster.map(p=>
     '<div class="rrow" data-id="'+p.id+'">'+
@@ -1004,6 +1152,7 @@ $('addPlayer').onclick=()=>{
   const id='p'+(++S.seq);S.roster.push({id,num:String(n),name:'Joueur '+n,pos:'DC'});T().example=false;rv++;save();renderRoster();
   const el=$('m-'+id);if(el){el.focus();el.select();}
 };
+$('optDest').addEventListener('change',()=>{T().dest=$('optDest').value.trim();save();});
 ['optOpp','optDate','optLen','optOt','optMax'].forEach(k=>$(k).addEventListener('change',()=>{
   commit();const m=S.m;
   m.opp=$('optOpp').value.trim();m.date=$('optDate').value;
@@ -1128,7 +1277,7 @@ document.addEventListener('visibilitychange',()=>{commit();save();if(!document.h
 window.addEventListener('pagehide',()=>{commit();save();});
 
 commit();renderAll();
-window.__tdj={S:()=>S};
+window.__tdj={S:()=>S,buildReport:()=>buildReport()};
 if('serviceWorker' in navigator&&!/claude/.test(location.hostname)&&(location.protocol==='https:'||location.hostname==='localhost')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;

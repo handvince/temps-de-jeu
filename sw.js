@@ -1,10 +1,10 @@
 // Temps de jeu handball : mise en cache complète pour un fonctionnement hors ligne.
 // Change CACHE à chaque nouvelle version pour que les iPad la récupèrent.
-const CACHE = 'tdj-v1.1';
+const CACHE = 'tdj-v1.2';
 const FILES = [
   './', './index.html', './manifest.webmanifest',
   './assets/ffhand.woff2', './assets/poppins-400.ttf', './assets/poppins-600.ttf', './assets/poppins-700.ttf',
-  './assets/logo-ffhb.svg', './assets/fond.jpg',
+  './assets/logo-ffhb.svg', './assets/fond.jpg', './assets/ffhand.ttf', './assets/logo-report.png', './lib/jspdf.umd.min.js',
   './icons/apple-touch-icon.png', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png'
 ];
 self.addEventListener('install', e => {
