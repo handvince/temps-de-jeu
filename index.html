@@ -507,7 +507,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.4';
+const APP_VERSION='1.4.1';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -518,7 +518,7 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'
 /* ---------- État ---------- */
 function exampleRoster(){
   const r=[[1,'GB'],[16,'GB'],[2,'AG'],[3,'ARG'],[4,'DC'],[5,'ARD'],[6,'AD'],[7,'PIV'],
-           [8,'AG'],[9,'ARG'],[10,'DC'],[11,'ARD'],[13,'AD'],[14,'PIV']];
+           [8,'AG'],[9,'ARG'],[10,'DC'],[11,'ARD'],[12,'GB'],[13,'AD'],[14,'PIV'],[15,'DC']];
   return r.map(([n,p],i)=>({id:'p'+(i+1),num:String(n),name:'Joueur '+n,pos:p}));
 }
 function newMatch(prev){
