@@ -36,6 +36,7 @@
   color-scheme:dark;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{height:100%;margin:0}
 body{
   background:var(--bg) url(assets/fond.jpg) center/cover no-repeat fixed;color:var(--text);font-family:var(--body);font-size:16px;
@@ -267,10 +268,97 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   .undo .lbl,.excl-btn .lbl{display:none}
   .clock{font-size:64px}.logo{height:44px}
 }
-@media (max-width:480px){
-  .view{padding:12px 16px 120px}
-  .grid,.grid.court{grid-template-columns:repeat(2,1fr)}
-  .rrow{grid-template-columns:64px 1fr 84px 48px}
+/* ---------- iPhone portrait ---------- */
+@media (max-width:600px){
+  header.board{grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"left undo excl" "clock clock go";gap:8px 8px;padding:8px 12px}
+  .board-right{display:contents}
+  #undoBtn{grid-area:undo}#exclBtn{grid-area:excl}#goBtn{grid-area:go}
+  .undo,.excl-btn{height:44px;width:48px;padding:0;justify-content:center;border-radius:12px}
+  .go{height:52px;min-width:0;width:132px;padding:0 6px;font-size:17px;align-self:center;justify-self:end}
+  .logo{display:none}
+  .long{display:none}
+  .board-left{gap:10px;min-width:0}
+  .board-info{gap:4px}
+  .match-title{font-size:15px}.match-title small{display:none}
+  .period .icon-btn{width:36px;height:36px;font-size:13px}
+  .period .label{font-size:16px;min-width:76px}
+  .clock-wrap{flex-direction:column;align-items:flex-start;justify-content:center;gap:0;min-width:0;overflow:hidden}
+  .clock{font-size:clamp(36px,12.5vw,50px);padding:0}
+  .clock-sub{font-size:12px;line-height:1.2;white-space:nowrap}
+  .clock-sub b{font-size:15px}
+  .view{padding:12px 12px 110px}
+  .zone{gap:8px;margin-bottom:16px}
+  .zone-head h2,.zone-head .count{font-size:19px}
+  .zone-head .hint{display:none}
+  .grid,.grid.court{grid-template-columns:repeat(3,1fr);gap:8px}
+  .tile,.slot{min-height:96px;padding:8px 9px;border-radius:12px}
+  .tile .n{font-size:30px}
+  .tile .name{font-size:14px;margin-top:2px}
+  .tile .name em{display:none}
+  .tile .times{flex-direction:column;align-items:flex-start;gap:0;margin-top:4px}
+  .tile .tt{font-size:17px}
+  .tile .sub{font-size:10.5px;text-align:left}
+  .slot-t{font-size:26px}.slot-l{font-size:10px}
+  .tile .badge{left:8px;font-size:10px}
+  nav.tabs button{height:54px;font-size:15px}
+  .report-btn{margin:6px 8px;height:42px!important;padding:0 12px}
+  .actionbar{bottom:calc(64px + env(safe-area-inset-bottom));padding:8px 10px;gap:8px}
+  .actionbar .msg{font-size:13px}
+  .btn{height:46px;padding:0 14px;font-size:14px}
+  .kpis{grid-template-columns:repeat(2,1fr);gap:8px}
+  .kpi .v{font-size:26px}
+  .toolbar .btn{flex:1 1 auto}
+  .toolbar span[style]{display:none}
+  th,td{padding:8px 9px}
+  .bar .track{width:60px}
+  .log .when{min-width:96px;font-size:14px}
+  .rrow{grid-template-columns:58px 1fr 78px 44px;gap:6px}
+  .rrow .del{width:44px}
+  .team-pick b{font-size:21px}.tp-go{height:42px;padding:0 12px;font-size:14px}
+  .dialog{padding:16px;gap:12px}
+  .dialog h4{font-size:22px}
+  .excl-choices button{min-height:64px}
+  .modal{padding:12px}
+  .view-banner .btn{flex:1 1 auto}
+}
+@media (max-width:360px){
+  .period .icon-btn{width:32px;height:32px}.period .label{min-width:58px;font-size:14px}
+  .undo,.excl-btn{width:42px}.go{width:118px;font-size:15px}
+}
+/* ---------- iPhone paysage (faible hauteur) ---------- */
+@media (max-height:500px) and (orientation:landscape){
+  header.board{grid-template-columns:auto 1fr auto;grid-template-areas:"left clock right";padding:6px 16px;gap:12px}
+  .board-left{grid-area:left}.board-right{grid-area:right;display:flex}.clock-wrap{grid-area:clock;flex-direction:row;align-items:baseline;justify-content:center;gap:10px}
+  .logo{height:32px}
+  .match-title{font-size:14px}.match-title small{display:none}
+  .period .icon-btn{width:34px;height:34px;font-size:12px}
+  .period .label{font-size:15px;min-width:70px}
+  .board-info{gap:3px}
+  .clock{font-size:44px}
+  .clock-sub{font-size:11px}
+  .go{height:46px;min-width:110px;font-size:19px}
+  .undo,.excl-btn{height:46px;width:auto;padding:0 12px}
+  .undo .lbl,.excl-btn .lbl{display:none}
+  .view{padding:10px 16px 90px}
+  .zone{gap:6px;margin-bottom:12px}
+  .zone-head h2,.zone-head .count{font-size:18px}
+  .zone-head .hint{display:none}
+  .grid,.grid.court{grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:8px}
+  .tile,.slot{min-height:84px;padding:6px 9px;border-radius:12px}
+  .tile .n{font-size:26px}
+  .tile .name{font-size:13px}
+  .tile .name em{display:none}
+  .tile .times{margin-top:2px}
+  .tile .tt{font-size:16px}
+  .tile .sub{font-size:10px}
+  .slot-t{font-size:24px}
+  nav.tabs button{height:44px;font-size:15px}
+  .report-btn{margin:4px 10px;height:36px!important;font-size:15px}
+  .actionbar{bottom:calc(52px + env(safe-area-inset-bottom));padding:6px 10px}
+  .btn{height:42px}
+  .modal{align-items:flex-start;padding:8px}
+  .dialog{max-height:calc(100% - 16px);padding:14px}
+  .excl-choices button{min-height:52px}
 }
 </style>
 </head>
@@ -290,7 +378,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   </div>
   <div class="clock-wrap">
     <button class="clock paused" id="clock" aria-label="Chrono de la période. Touche pour corriger quand il est arrêté.">00:00</button>
-    <div class="clock-sub">Temps de jeu total <b id="gameTotal">0:00</b></div>
+    <div class="clock-sub"><span class="long">Temps de jeu </span>total <b id="gameTotal">0:00</b></div>
   </div>
   <div class="board-right">
     <button class="undo" id="undoBtn" disabled aria-label="Annuler la dernière action">↶<span class="lbl"> Annuler</span></button>
@@ -380,7 +468,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 
 <nav class="tabs" role="tablist">
   <button role="tab" data-view="match" aria-selected="true">Match</button>
-  <button role="tab" data-view="stats" aria-selected="false">Temps de jeu</button>
+  <button role="tab" data-view="stats" aria-selected="false">Temps<span class="long"> de jeu</span></button>
   <button role="tab" data-view="roster" aria-selected="false">Effectif</button>
   <button class="report-btn" id="reportBtn" aria-label="Envoyer le rapport PDF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg><span class="lbl">Rapport PDF</span></button>
 </nav>
@@ -392,7 +480,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.2';
+const APP_VERSION='1.3.1';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
