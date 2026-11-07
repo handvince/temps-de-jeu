@@ -290,19 +290,36 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   .zone{gap:8px;margin-bottom:16px}
   .zone-head h2,.zone-head .count{font-size:19px}
   .zone-head .hint{display:none}
-  .grid,.grid.court{grid-template-columns:repeat(3,1fr);gap:8px}
-  .tile,.slot{min-height:96px;padding:8px 9px;border-radius:12px}
-  .tile .n{font-size:30px}
-  .tile .name{font-size:14px;margin-top:2px}
+  /* 16 joueurs visibles sans défiler : 4 colonnes, hauteur calculée (--tile-h) */
+  #view-match{padding:8px 10px 8px}
+  #view-match .zone{gap:5px;margin-bottom:8px}
+  #view-match .zone-head h2,#view-match .zone-head .count{font-size:16px}
+  #view-match .zone-head .warn{font-size:11px;padding:0 6px}
+  .grid,.grid.court{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+  .tile,.slot{min-height:0;height:var(--tile-h,92px);padding:5px 7px;border-radius:10px;border-width:2px;overflow:hidden}
+  .tile{grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto 1fr;column-gap:4px}
+  .tile .hs{display:none}
+  .tile .n{font-size:20px;grid-row:1;grid-column:1;letter-spacing:-.02em}
+  .tile .times{display:contents}
+  .tile .tt{grid-row:1;grid-column:2;justify-self:end;align-self:center;font-size:14px;line-height:1;white-space:nowrap}
+  .tile .name{grid-row:2;grid-column:1/3;font-size:12.5px;margin-top:2px;line-height:1.15}
   .tile .name em{display:none}
-  .tile .times{flex-direction:column;align-items:flex-start;gap:0;margin-top:4px}
-  .tile .tt{font-size:17px}
-  .tile .sub{font-size:10.5px;text-align:left}
-  .slot-t{font-size:26px}.slot-l{font-size:10px}
-  .tile .badge{left:8px;font-size:10px}
+  .tile .sub{grid-row:3;grid-column:1/3;align-self:end;font-size:10px;text-align:left;line-height:1.2}
+  #view-match.tight .tile .sub{display:none}
+  #view-match.tight .tile{padding:4px 6px}
+  #view-match.tight .tile .n{font-size:18px}
+  #view-match.tight .tile .tt{font-size:13px}
+  #view-match.tight .tile .name{align-self:end}
+  #view-match.tight .slot-l{display:none}
+  #view-match.tight .slot-l:first-child{display:block}
+  .slot-t{font-size:18px}.slot-l{font-size:8.5px;letter-spacing:0}
+  .tile .badge{left:6px;bottom:2px;font-size:8.5px;padding:0 4px}
+  .tile.ready .tt,.tile.dq .tt{font-size:11px}
+  .actionbar{top:calc(6px + env(safe-area-inset-top));bottom:auto;left:10px;right:10px;transform:none;max-width:none;justify-content:space-between;flex-wrap:nowrap}
+  .actionbar .msg{flex:1}
   nav.tabs button{height:54px;font-size:15px}
   .report-btn{margin:6px 8px;height:42px!important;padding:0 12px}
-  .actionbar{bottom:calc(64px + env(safe-area-inset-bottom));padding:8px 10px;gap:8px}
+  .actionbar{padding:8px 10px;gap:8px}
   .actionbar .msg{font-size:13px}
   .btn{height:46px;padding:0 14px;font-size:14px}
   .kpis{grid-template-columns:repeat(2,1fr);gap:8px}
@@ -320,6 +337,16 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   .excl-choices button{min-height:64px}
   .modal{padding:12px}
   .view-banner .btn{flex:1 1 auto}
+}
+@media (max-width:600px) and (max-height:620px) and (orientation:portrait){
+  header.board{padding:5px 10px;gap:5px 8px}
+  .clock{font-size:40px}
+  .go{height:44px}
+  .undo,.excl-btn{height:38px}
+  .period .icon-btn{width:32px;height:32px}
+  .match-title{font-size:13px}
+  nav.tabs button{height:46px}
+  .report-btn{height:36px!important;margin:5px 8px}
 }
 @media (max-width:360px){
   .period .icon-btn{width:32px;height:32px}.period .label{min-width:58px;font-size:14px}
@@ -480,7 +507,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.3.1';
+const APP_VERSION='1.4';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -669,7 +696,7 @@ function tileHTML(p,kind){
   const cls=['tile',kind];
   if(sel&&sel.id===p.id)cls.push('sel');
   if(pick&&(kind==='court'||kind==='bench'))cls.push('pick');
-  const hot='<span></span>';
+  const hot='<span class="hs"></span>';
   const badge=s&&s.twoMin&&!s.dq&&(kind==='court'||kind==='bench')?'<span class="badge">2 min ×'+s.twoMin+'</span>':'';
   return '<div class="'+cls.join(' ')+'" role="button" tabindex="0" data-id="'+p.id+'" data-kind="'+kind+'" aria-label="#'+esc(p.num)+' '+esc(p.name)+'">'+
     '<span class="n">'+esc(p.num)+'</span>'+hot+
@@ -691,8 +718,26 @@ function renderMatch(force){
   $('courtGrid').innerHTML=ch||'<div class="empty">Personne sur le terrain. Touche les joueurs du banc pour composer le 7 de départ.</div>';
   const bench=sortedRoster().filter(p=>!m.on.includes(p.id));
   $('benchGrid').innerHTML=bench.map(p=>{const e=isExcl(p.id);return tileHTML(p,e&&e.rem>0?'excl':(st(p.id).dq?'dq':'bench'));}).join('')||'<div class="empty">'+(S.roster.length?'Tout l\'effectif est en jeu.':'Aucun joueur dans cette équipe : ajoute-les dans l\'onglet Effectif.')+'</div>';
-  renderActionBar();renderHeader();updateTimes();
+  renderActionBar();renderHeader();updateTimes();fitPhone();
 }
+const phoneMQ=matchMedia('(max-width:600px)');
+function fitPhone(){
+  const vm=$('view-match');
+  if(!phoneMQ.matches||view!=='match'){vm.style.removeProperty('--tile-h');vm.classList.remove('tight');return;}
+  const main=document.querySelector('main');
+  const cols=4,gap=6;
+  const nc=$('courtGrid').querySelectorAll('.tile,.slot').length||1,nb=$('benchGrid').querySelectorAll('.tile').length||1;
+  const rows=Math.ceil(nc/cols)+Math.ceil(nb/cols);
+  let fixed=16; // padding de la vue
+  vm.querySelectorAll('.zone').forEach(z=>{const h=z.querySelector('.zone-head');fixed+=(h?h.offsetHeight:0)+5+8;});
+  fixed+=(Math.ceil(nc/cols)-1+Math.ceil(nb/cols)-1)*gap;
+  let th=Math.floor((main.clientHeight-fixed)/rows);
+  th=Math.max(44,Math.min(110,th));
+  vm.style.setProperty('--tile-h',th+'px');
+  vm.classList.toggle('tight',th<70);
+}
+addEventListener('resize',()=>fitPhone());
+addEventListener('orientationchange',()=>setTimeout(fitPhone,250));
 function clockHTML(ms){return fmtClock(ms).split('').map(c=>c===':'?'<i class="c">:</i>':'<i>'+c+'</i>').join('');}
 let lastClock='';
 function updateTimes(){
