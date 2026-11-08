@@ -19,7 +19,7 @@ elle s'ouvre et fonctionne sans aucune connexion.
 
 ## Mettre à jour l'app
 
-Remplace les fichiers modifiés sur GitHub, et change la ligne `const CACHE = 'tdj-v1.4.1';` dans sw.js
+Remplace les fichiers modifiés sur GitHub, et change la ligne `const CACHE = 'tdj-v1.4.2';` dans sw.js
 (par ex. `tdj-v1.1`). Au prochain lancement avec du réseau, l'app propose « Mettre à jour ».
 
 ## Données

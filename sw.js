@@ -1,6 +1,6 @@
 // Temps de jeu handball : mise en cache complète pour un fonctionnement hors ligne.
 // Change CACHE à chaque nouvelle version pour que les iPad la récupèrent.
-const CACHE = 'tdj-v1.4.1';
+const CACHE = 'tdj-v1.4.2';
 const FILES = [
   './', './index.html', './manifest.webmanifest',
   './assets/ffhand.woff2', './assets/poppins-400.ttf', './assets/poppins-600.ttf', './assets/poppins-700.ttf',

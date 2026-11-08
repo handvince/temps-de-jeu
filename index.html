@@ -108,7 +108,10 @@ main{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
 }
 .tile .n{font-family:var(--display);font-size:40px;line-height:1}
 .tile .name{grid-column:1/3;font-weight:600;font-size:17px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px}
-.tile .name em{font-style:normal;color:var(--muted);font-weight:400;font-size:12px;margin-left:4px}
+/* poste : pastille colorée par famille de poste */
+.pos2{display:none}
+.pc{font-style:normal;display:inline-block;font-size:11px;font-weight:700;line-height:1.35;padding:0 5px;border-radius:5px;margin-right:6px;color:#0F1B63;vertical-align:1px;letter-spacing:.02em}
+.pc-gb{background:#f2c200}.pc-ail{background:#4DA9E1}.pc-arr{background:#b9a2ff}.pc-dc{background:#ffffff}.pc-piv{background:#35c98a}
 .tile .times{grid-column:1/3;display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;gap:6px;align-self:end}
 .tile .tt{font-family:var(--display);font-size:20px}
 .tile .sub{font-size:12px;color:var(--muted);text-align:right;white-space:nowrap}
@@ -303,8 +306,14 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   .tile .times{display:contents}
   .tile .tt{grid-row:1;grid-column:2;justify-self:end;align-self:center;font-size:14px;line-height:1;white-space:nowrap}
   .tile .name{grid-row:2;grid-column:1/3;font-size:12.5px;margin-top:2px;line-height:1.15}
-  .tile .name em{display:none}
-  .tile .sub{grid-row:3;grid-column:1/3;align-self:end;font-size:10px;text-align:left;line-height:1.2}
+  .pc{font-size:9px;padding:0 3px;margin-right:3px;border-radius:4px;vertical-align:1px}
+  /* iPhone : nom seul sur sa ligne, poste en bas à gauche, séquence en bas à droite */
+  .tile .name .pc{display:none}
+  .tile .pos2{display:block;grid-row:3;grid-column:1;align-self:end;line-height:1}
+  .tile .pos2 .pc{margin:0;font-size:9.5px}
+  .tile .sub{grid-row:3;grid-column:2;justify-self:end;align-self:end;font-size:9.5px;text-align:right;line-height:1.2;white-space:nowrap}
+  #view-match.tight .tile .name .pc{display:inline-block}
+  #view-match.tight .tile .pos2{display:none}
   #view-match.tight .tile .sub{display:none}
   #view-match.tight .tile{padding:4px 6px}
   #view-match.tight .tile .n{font-size:18px}
@@ -374,7 +383,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   .tile,.slot{min-height:84px;padding:6px 9px;border-radius:12px}
   .tile .n{font-size:26px}
   .tile .name{font-size:13px}
-  .tile .name em{display:none}
+  .pc{font-size:9.5px;padding:0 4px;margin-right:4px}
   .tile .times{margin-top:2px}
   .tile .tt{font-size:16px}
   .tile .sub{font-size:10px}
@@ -507,7 +516,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.4.1';
+const APP_VERSION='1.4.2';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -700,10 +709,12 @@ function tileHTML(p,kind){
   const badge=s&&s.twoMin&&!s.dq&&(kind==='court'||kind==='bench')?'<span class="badge">2 min ×'+s.twoMin+'</span>':'';
   return '<div class="'+cls.join(' ')+'" role="button" tabindex="0" data-id="'+p.id+'" data-kind="'+kind+'" aria-label="#'+esc(p.num)+' '+esc(p.name)+'">'+
     '<span class="n">'+esc(p.num)+'</span>'+hot+
-    '<span class="name">'+esc(p.name)+'<em>'+esc(p.pos)+'</em></span>'+
-    '<span class="times"><span class="tt" data-tt="'+p.id+'"></span><span class="sub" data-sub="'+p.id+'"></span></span>'+badge+
+    '<span class="name">'+posChip(p.pos)+esc(p.name)+'</span>'+
+    '<span class="times"><span class="tt" data-tt="'+p.id+'"></span><span class="sub" data-sub="'+p.id+'"></span></span><span class="pos2">'+posChip(p.pos)+'</span>'+badge+
   '</div>';
 }
+const POS_GRP={GB:'gb',AG:'ail',AD:'ail',ARG:'arr',ARD:'arr',DC:'dc',PIV:'piv'};
+function posChip(pos){return pos?'<em class="pc pc-'+(POS_GRP[pos]||'dc')+'">'+esc(pos)+'</em>':'';}
 function sortedRoster(){return S.roster.slice().sort((a,b)=>(+a.num||999)-(+b.num||999));}
 function renderMatch(force){
   const m=S.m;
@@ -761,9 +772,10 @@ function updateTimes(){
   document.querySelectorAll('[data-sub]').forEach(el=>{
     const id=el.dataset.sub,s=m.st[id],e=isExcl(id);
     if(e){el.textContent=e.dq?'disqualifié':'exclu';return;}
-    if(m.on.includes(id)){el.textContent='en jeu '+fmt(g-(s&&s.inAt!=null?s.inAt:g));return;}
+    const ph=phoneMQ.matches;
+    if(m.on.includes(id)){el.textContent=(ph?'jeu ':'en jeu ')+fmt(g-(s&&s.inAt!=null?s.inAt:g));return;}
     if(s&&s.outAt!=null){el.textContent='repos '+fmt(g-s.outAt);return;}
-    el.textContent=s&&s.entries?'':'pas entré';
+    el.textContent=s&&s.entries?'':(ph?'':'pas entré');
   });
 }
 const EXCL_LABEL={'2min':'2 minutes',red:'Carton rouge',blue:'Carton bleu'};
@@ -946,8 +958,9 @@ function dartfishCsv(offMs){
   const endW=m.running?Date.now():(lastStop||Date.now());
   Object.keys(open).forEach(id=>closeS(id,endW));
   rows.sort((a,b)=>a.w-b.w);
-  let c='Name;Position;Duration;Catégorie;Joueur;Numéro;Poste;Sortant;Période;Chrono;Heure\n';
-  rows.forEach(r=>{c+=[q(r.name),pos(r.w),Math.round(r.dur),q(r.cat),q(r.j),q(r.n),q(r.pos),q(r.out),q(r.per),r.c,hhmmss(r.w)].join(';')+'\n';});
+  const qc=v=>{v=String(v==null?'':v);return /[,"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  let c='\ufeffNom,Position,Durée:,catégorie,joueur,numéro,poste,sortant,période,chrono,heure\n';
+  rows.forEach(r=>{c+=[qc(r.name),pos(r.w),Math.round(r.dur),qc(r.cat),qc(r.j),qc(r.n),qc(r.pos),qc(r.out),qc(r.per),qc(r.c),hhmmss(r.w)].join(',')+'\n';});
   return c;
 }
 function parseOff(s){
@@ -1004,7 +1017,7 @@ $('dfBtn').addEventListener('click',()=>{
   openDlg('<h4>Export Dartfish</h4>'+
     '<p>Un événement par passage de chaque joueur sur le terrain (catégorie « Présence terrain »), plus les changements, exclusions et fins de période. Position et Duration sont en millisecondes de temps réel, mesurées depuis le coup d\'envoi ('+hhmmss(m.kick)+').</p>'+
     '<label class="f" for="vOff">Coup d\'envoi dans la vidéo (min:s ou h:min:s)<input id="vOff" inputmode="numeric" value="'+esc(fmtOff(m.vOff||0))+'"></label>'+
-    '<p>Dans Dartfish : liste d\'événements › Importer › choisis ce fichier, séparateur point-virgule, première ligne = en-têtes, puis associe Position, Duration et Name. Laisse 0:00 si tu préfères décaler les événements dans Dartfish.</p>'+
+    '<p>Dans Dartfish : liste d\'événements › Importer › choisis ce fichier, séparateur virgule, première ligne = en-têtes, puis associe Position, Durée et Nom. Laisse 0:00 si tu préfères décaler les événements dans Dartfish.</p>'+
     '<div class="btns"><button class="btn" data-close>Annuler</button><button class="btn" id="dfCopy">Copier</button><button class="btn primary" id="dfSave">Télécharger le CSV</button></div>');
   const get=()=>{const v=parseOff($('vOff').value);if(v==null){toast('Décalage invalide : écris par ex. 2:35');return null;}
     m.vOff=v;save();return dartfishCsv(v);};
