@@ -288,7 +288,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:calc(100% - 32px)
 }
 .toast.show{display:flex}
-@media (max-width:600px){.toast{width:calc(100% - 24px);justify-content:space-between}}
+@media (max-width:600px){.toast{width:calc(100% - 24px);justify-content:space-between;top:auto;bottom:calc(66px + env(safe-area-inset-bottom))}}
 .toast button{height:40px;padding:0 12px;border-radius:10px;border:none;background:var(--navy);color:var(--accent);font-weight:700}
 
 @media (max-width:820px){
@@ -555,7 +555,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.6.1';
+const APP_VERSION='1.6.2';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -1294,7 +1294,52 @@ function vexec(c){
   }
 }
 /* Essaie chaque transcription proposée (alternatives) et garde la première cohérente avec le match. */
+/* Découpe un texte dicté d'un bloc (« 9 pour 72 minutes 5entre 4 ») en commandes séparées.
+   Les numéros collés sont redécoupés d'après l'effectif (« 75 » → 7 et 5 si 75 n'existe pas). */
+function vsegment(text){
+  let t=' '+vnorm(text)+' ';
+  t=t.replace(/(\d)([a-z])/g,'$1 $2').replace(/([a-z])(\d)/g,'$1 $2');
+  const K=(re,tok)=>{t=t.replace(re,' '+tok+' ');};
+  t=t.replace(/(\d*)2\s?(minutes?|min|mn)\b/g,(m,a)=>' '+(a?a+' ':'')+'K2MIN ');
+  K(/\bdeux\s?(minutes?|min|mn)\b/g,'K2MIN');K(/\b(exclusion|exclue|exclu)\b/g,'K2MIN');
+  K(/\b(carton rouge|rouge|disqualification|disqualifie)\b/g,'KRED');K(/\b(carton bleu|bleu)\b/g,'KBLUE');
+  K(/\b(temps mort|pause|stoppe|stopper|stop|arretez|arreter|arrete|arret)\b/g,'KPAUSE');
+  K(/\b(on reprend|reprendre|reprenez|reprenons|reprends|reprend|reprise|c est parti|demarrage|demarrez|demarrer|demarre|relancer|relance|lancer|lance|start|top|go)\b/g,'KSTART');
+  K(/\b(annuler|annule|oups|retour)\b/g,'KUNDO');
+  K(/\b(remplacee par|remplace par|a la place de|place de|remplace|pour|par|contre|sur)\b/g,'KFOR');
+  K(/\b(entree|entre|rentre|in)\b/g,'KIN');K(/\b(sortie|sort|sors|out|dehors)\b/g,'KOUT');
+  t=vnums(t.replace(/\s+/g,' ').trim());
+  const nums=new Set(S.roster.map(p=>String(p.num)));
+  let toks=[];
+  t.split(' ').filter(Boolean).forEach(x=>{
+    if(/^\d{2,}$/.test(x)&&!nums.has(String(+x))){
+      for(let k=1;k<x.length;k++){const a=String(+x.slice(0,k)),b=String(+x.slice(k));if(nums.has(a)&&nums.has(b)){toks.push(a,b);return;}}
+    }
+    toks.push(x);
+  });
+  const pl=x=>/^K[A-Z0-9]+$/.test(x)?null:vplayer(x);
+  const out=[];let i=0;
+  while(i<toks.length){
+    const x=toks[i],p=pl(x),n1=toks[i+1],n2=toks[i+2],n3=toks[i+3];
+    if(x==='KUNDO'){out.push('annule');i++;continue;}
+    if(x==='KPAUSE'){out.push('pause');i++;continue;}
+    if(x==='KSTART'){out.push('reprise');i++;continue;}
+    if((x==='K2MIN'||x==='KRED'||x==='KBLUE')&&n1&&pl(n1)){out.push({K2MIN:'2 minutes ',KRED:'rouge ',KBLUE:'bleu '}[x]+pl(n1).num);i+=2;continue;}
+    if(x==='KIN'&&n1&&pl(n1)){if(n2==='KOUT'&&n3&&pl(n3)){out.push('entre '+pl(n1).num+' sort '+pl(n3).num);i+=4;}else{out.push('entre '+pl(n1).num);i+=2;}continue;}
+    if(x==='KOUT'&&n1&&pl(n1)){if(n2==='KIN'&&n3&&pl(n3)){out.push('sort '+pl(n1).num+' entre '+pl(n3).num);i+=4;}else{out.push('sort '+pl(n1).num);i+=2;}continue;}
+    if(p&&n1==='KFOR'&&n2&&pl(n2)){out.push(p.num+' pour '+pl(n2).num);i+=3;continue;}
+    if(p&&n1==='KIN'){out.push('entre '+p.num);i+=2;continue;}
+    if(p&&n1==='KOUT'){out.push('sort '+p.num);i+=2;continue;}
+    i++;
+  }
+  return out;
+}
 function handleVoice(alts){
+  alts=(alts||[]).filter(a=>a&&a.trim());
+  if(alts.length){const segs=vsegment(alts[0]);if(segs.length>1){segs.forEach(c=>handleVoice1([c]));return;}}
+  handleVoice1(alts);
+}
+function handleVoice1(alts){
   alts=(alts||[]).filter(a=>a&&a.trim());
   if(!alts.length){voiceFeedback(null,'Rien entendu : rapproche le micro et réessaie');return;}
   let firstErr=null;
@@ -1363,11 +1408,15 @@ document.addEventListener('click',e=>{
 },true);
 function voiceFlush(){
   const i=$('voiceIn'),txt=i.value.slice(vProcessed);vProcessed=i.value.length;
-  const parts=txt.split(/[.!?\n]+|\b(?:puis|et puis|ensuite)\b/i).map(x=>x.trim()).filter(Boolean);
-  parts.forEach(p=>handleVoice([p]));
+  if(!txt.trim())return;
+  const segs=vsegment(txt);
+  if(segs.length)segs.forEach(c=>handleVoice1([c]));else handleVoice1([txt]);
   if(i.value.length>160){i.value='';vProcessed=0;}
 }
-$('voiceIn').addEventListener('input',()=>{clearTimeout(vTimer);vTimer=setTimeout(voiceFlush,900);});
+let vClearT=null;
+$('voiceIn').addEventListener('input',()=>{clearTimeout(vTimer);clearTimeout(vClearT);vTimer=setTimeout(voiceFlush,700);
+  /* vide le champ après 3 s sans dictée, pour qu'il ne se remplisse pas */
+  vClearT=setTimeout(()=>{const i=$('voiceIn');if(vProcessed>=i.value.length){i.value='';vProcessed=0;}},3000);});
 $('voiceIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(vTimer);voiceFlush();}});
 $('voiceClose').addEventListener('click',()=>setVoice(false));
 $('voiceHelp').addEventListener('click',openVoiceHelp);
@@ -1677,7 +1726,7 @@ document.addEventListener('visibilitychange',()=>{commit();save();if(!document.h
 window.addEventListener('pagehide',()=>{commit();save();});
 
 commit();renderAll();
-window.__tdj={S:()=>S,buildReport:()=>buildReport(),voice:a=>handleVoice(a),vparse:t=>vparse(t)};
+window.__tdj={seg:t=>vsegment(t),S:()=>S,buildReport:()=>buildReport(),voice:a=>handleVoice(a),vparse:t=>vparse(t)};
 if('serviceWorker' in navigator&&!/claude/.test(location.hostname)&&(location.protocol==='https:'||location.hostname==='localhost')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;
