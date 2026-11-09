@@ -73,6 +73,32 @@ header.board{
 .board-right{display:flex;justify-content:flex-end;gap:10px;align-items:center}
 .go{min-width:140px;padding:0 18px;height:64px;border-radius:14px;border:none;font-family:var(--display);font-size:24px;background:var(--accent);color:var(--navy)}
 .go.running{background:var(--red);color:#fff}
+.go.done{background:var(--surface-2);color:var(--accent);border:2px solid var(--accent);font-size:17px;line-height:1.05}
+.saved-ok{display:flex;gap:12px;align-items:center;background:rgba(53,201,138,.14);border:1px solid #35c98a;border-radius:12px;padding:12px 14px}
+.saved-ok .ck{flex:none;width:34px;height:34px;border-radius:50%;background:#35c98a;color:#06231a;display:grid;place-items:center;font-weight:700;font-size:20px}
+.saved-ok b{display:block;color:#fff}
+.saved-ok span{color:var(--muted);font-size:13px}
+.end-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.end-actions .btn{height:56px}
+.undo .lbl{display:none}
+.undo{min-width:64px;justify-content:center}
+.mic-btn{height:64px;padding:0 16px;border-radius:14px;border:2px solid var(--sky);background:rgba(77,169,225,.15);font-weight:700;display:flex;align-items:center;gap:8px;touch-action:none;-webkit-touch-callout:none}
+.mic-btn svg{width:22px;height:22px;flex:none}
+.mic-btn[aria-pressed="true"]{background:var(--sky);color:var(--navy);animation:micpulse 1s ease-in-out infinite}
+@keyframes micpulse{50%{box-shadow:0 0 0 6px rgba(77,169,225,.35)}}
+@media (prefers-reduced-motion:reduce){.mic-btn[aria-pressed="true"]{animation:none}}
+.voicebar{position:fixed;left:50%;transform:translateX(-50%);top:calc(8px + env(safe-area-inset-top));z-index:15;width:min(640px,calc(100% - 20px));
+  background:var(--navy);border:2px solid var(--sky);border-radius:16px;padding:10px 12px;display:none;flex-direction:column;gap:8px;box-shadow:0 10px 30px rgba(0,0,0,.55)}
+.voicebar.show{display:flex}
+.voicebar .vrow{display:flex;gap:8px;align-items:center}
+.voicebar input{flex:1;min-width:0;height:48px}
+.voicebar .vlast{font-size:13px;color:var(--muted);min-height:18px}
+.voicebar .vlast b{color:var(--accent)}
+.voicebar .vundo{height:34px;padding:0 10px;font-size:13px;margin-left:6px}
+.voicebar .vlast.err b{color:#ff8a7f}
+.vhelp{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px}
+.vhelp b{font-family:var(--display);font-weight:400;font-size:16px;color:var(--accent);white-space:nowrap}
+.vhelp span{color:var(--muted)}
 .excl-btn{height:64px;padding:0 16px;border-radius:14px;border:2px solid var(--red);background:rgba(233,51,35,.15);font-weight:700;display:flex;align-items:center;gap:10px}
 .excl-btn .cards{position:relative;width:24px;height:20px}
 .excl-btn .cards::before,.excl-btn .cards::after{content:"";position:absolute;width:13px;height:18px;border-radius:2px;top:1px}
@@ -262,20 +288,23 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:calc(100% - 32px)
 }
 .toast.show{display:flex}
+@media (max-width:600px){.toast{width:calc(100% - 24px);justify-content:space-between}}
 .toast button{height:40px;padding:0 12px;border-radius:10px;border:none;background:var(--navy);color:var(--accent);font-weight:700}
 
 @media (max-width:820px){
   header.board{grid-template-columns:1fr auto;grid-template-areas:"left right" "clock clock"}
   .board-left{grid-area:left}.board-right{grid-area:right}.clock-wrap{grid-area:clock}
-  .go{min-width:110px;height:56px;font-size:22px}.undo,.excl-btn{height:56px}
-  .undo .lbl,.excl-btn .lbl{display:none}
+  .go{min-width:110px;height:56px;font-size:22px}.undo,.excl-btn,.mic-btn{height:56px}
+  .undo .lbl,.excl-btn .lbl,.mic-btn .lbl{display:none}
   .clock{font-size:64px}.logo{height:44px}
 }
 /* ---------- iPhone portrait ---------- */
 @media (max-width:600px){
-  header.board{grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"left undo excl" "clock clock go";gap:8px 8px;padding:8px 12px}
+  header.board{grid-template-columns:minmax(0,1fr) auto auto auto;grid-template-areas:"left mic undo excl" "clock go go go";gap:8px 8px;padding:8px 12px}
   .board-right{display:contents}
-  #undoBtn{grid-area:undo}#exclBtn{grid-area:excl}#goBtn{grid-area:go}
+  #undoBtn{grid-area:undo}#exclBtn{grid-area:excl}#goBtn{grid-area:go}#micBtn{grid-area:mic}
+  .mic-btn{height:44px;width:48px;padding:0;justify-content:center;border-radius:12px}
+  .mic-btn .lbl{display:none}
   .undo,.excl-btn{height:44px;width:48px;padding:0;justify-content:center;border-radius:12px}
   .go{height:52px;min-width:0;width:132px;padding:0 6px;font-size:17px;align-self:center;justify-self:end}
   .logo{display:none}
@@ -418,6 +447,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   </div>
   <div class="board-right">
     <button class="undo" id="undoBtn" disabled aria-label="Annuler la dernière action">↶<span class="lbl"> Annuler</span></button>
+    <button class="mic-btn" id="micBtn" aria-pressed="false" aria-label="Commande vocale"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 17v4"/></svg><span class="lbl">Vocal</span></button>
     <button class="excl-btn" id="exclBtn" aria-pressed="false"><span class="cards"></span><span class="lbl">Exclusion</span></button>
     <button class="go" id="goBtn">DÉMARRER</button>
   </div>
@@ -500,6 +530,14 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   </section>
 </main>
 
+<div class="voicebar" id="voicebar" role="dialog" aria-label="Commande vocale par dictée">
+  <div class="vrow">
+    <input id="voiceIn" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" placeholder="Touche le micro du clavier et dis « 7 pour 9 »" aria-label="Commande dictée">
+    <button class="btn" id="voiceHelp" aria-label="Aide commandes vocales">?</button>
+    <button class="btn" id="voiceClose">Fermer</button>
+  </div>
+  <div class="vlast" id="voiceLast">Dicte une commande ; elle est exécutée dès que tu marques une pause.</div>
+</div>
 <div class="actionbar" id="actionbar" role="toolbar" aria-label="Joueur sélectionné"></div>
 
 <nav class="tabs" role="tablist">
@@ -516,7 +554,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.4.2';
+const APP_VERSION='1.5.2';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -596,8 +634,8 @@ function commit(){
       logEv('stop',null,null,endWall);
       if(m.live){logEv('pend',null,null,endWall);m.live=false;}
       archiveCurrent();
-      const nxt=m.period<3?PERIODS[m.period+1]:null;
-      toast('Fin de la '+PERIODS[m.period],nxt?'Passer en '+nxt:null,nxt?()=>changePeriod(1):null,true);
+      if(m.period===1||m.period===3){m.finished=true;save();setTimeout(()=>showEndDlg(),0);}
+      else{const nxt=PERIODS[m.period+1];toast('Fin de la '+PERIODS[m.period]+' · match enregistré','Passer en '+nxt,()=>changePeriod(1),true);}
     }
   }
   m.last=now;
@@ -650,6 +688,7 @@ function doDismissExcl(id){act(()=>{S.m.excl=S.m.excl.filter(e=>e.id!==id);});}
 function toggleClock(){
   commit();
   const m=S.m;
+  if(m.finished&&!m.running){showEndDlg();return;}
   if(!m.running&&m.el[m.period]>=len(m.period)){
     const nxt=m.period<3;
     toast('La '+PERIODS[m.period]+' est terminée',nxt?'Passer en '+PERIODS[m.period+1]:null,nxt?()=>changePeriod(1):null);return;
@@ -667,7 +706,7 @@ function changePeriod(dir){
   const m=S.m;if(m.running)return;
   const p=m.period+dir;if(p<0||p>3)return;
   if(m.live){logEv('pend');m.live=false;archiveCurrent();}
-  m.period=p;undo=[];logEv('period');
+  m.period=p;m.finished=false;undo=[];logEv('period');
   hideToast();save();renderAll();
 }
 function adjustClock(deltaMs){
@@ -688,10 +727,11 @@ function doUndo(){
 function renderHeader(){
   const m=S.m;
   $('matchTitle').innerHTML=esc(T().name)+(m.opp?' vs '+esc(m.opp):'')+'<small>'+esc(fmtDate(m.date))+'</small>';
-  $('periodLabel').textContent=PERIODS[m.period];
+  $('periodLabel').textContent=m.finished?'TERMINÉ':PERIODS[m.period];
   $('prevP').disabled=m.running||m.period===0;
   $('nextP').disabled=m.running||m.period===3;
-  const go=$('goBtn');go.textContent=m.running?'PAUSE':(gameMs()===0?'DÉMARRER':'REPRENDRE');
+  const go=$('goBtn');go.textContent=m.running?'PAUSE':(m.finished?'FIN DU MATCH':(gameMs()===0?'DÉMARRER':'REPRENDRE'));
+  go.classList.toggle('done',!!m.finished&&!m.running);
   go.classList.toggle('running',m.running);
   $('clock').classList.toggle('paused',!m.running);
   $('undoBtn').disabled=!undo.length;
@@ -722,7 +762,8 @@ function renderMatch(force){
     Object.keys(m.st).filter(k=>m.st[k].dq||m.st[k].twoMin).map(k=>k+m.st[k].twoMin+m.st[k].dq)]);
   if(!force&&key===structKey){updateTimes();return;}
   structKey=key;
-  const court=m.on.map(P).filter(Boolean);
+  const byNum=(a,b)=>(+a.num||999)-(+b.num||999)||String(a.num).localeCompare(String(b.num));
+  const court=m.on.map(P).filter(Boolean).sort(byNum);
   let ch=court.map(p=>tileHTML(p,'court')).join('');
   m.excl.forEach(e=>{if(e.rem<=0)return;const p=P(e.id);
     ch+='<div class="slot" aria-label="Place vide : exclusion"><span class="slot-l">Infériorité</span><span class="slot-t" data-slot="'+e.id+'"></span><span class="slot-l">'+(p?'2 min de #'+esc(p.num):'2 min')+'</span></div>';});
@@ -1038,7 +1079,10 @@ function preloadPdf(){
 preloadPdf();
 function buildReport(){
   const J=window.jspdf&&window.jspdf.jsPDF;if(!J)return null;
-  const m=S.m,g=gameMs(),now=new Date();
+  // Match archivé affiché dans l'onglet Temps de jeu (VIEW) ou match en cours
+  const arch=!!VIEW,m=M(),g=gM(),roster=R(),now=new Date();
+  const PL=arch?PV:P,pn=arch?pnameV:pname;
+  const cap=Math.max(0,(m.maxOn||7)-m.excl.filter(e=>e.rem>0).length);
   const doc=new J({unit:'mm',format:'a4'});
   let F='helvetica',FB='helvetica',FD='helvetica';
   try{if(PDFA.reg){doc.addFileToVFS('P4.ttf',PDFA.reg);doc.addFont('P4.ttf','Poppins','normal');F='Poppins';}
@@ -1047,18 +1091,23 @@ function buildReport(){
   const NAVY=[15,27,99],LIME=[217,250,122],BLUE=[36,72,223],RED=[233,51,35],SKY=[77,169,225],GREY=[110,118,150],INK=[20,26,60];
   const font=(f,sz,col)=>{doc.setFont(f,'normal');doc.setFontSize(sz);doc.setTextColor.apply(doc,col||INK);};
   const W=210,L=12,Rx=198;
-  const team=T().name,hm=hhmmss(now.getTime());
+  const team=arch?VIEW.team:T().name,hm=hhmmss(now.getTime());
   // bandeau
   doc.setFillColor.apply(doc,NAVY);doc.rect(0,0,W,32,'F');
   doc.setFillColor.apply(doc,RED);doc.rect(0,32,W,1.2,'F');doc.setFillColor.apply(doc,BLUE);doc.rect(0,33.2,W,1.2,'F');
   if(PDFA.logo)try{doc.addImage(PDFA.logo,'PNG',L,5,30,19.4);}catch(e){}
   font(FD,15,LIME);doc.text('RAPPORT TEMPS DE JEU',47,13.5);
   font(F,10,[255,255,255]);doc.text(doc.splitTextToSize(team+(m.opp?' vs '+m.opp:'')+' · '+fmtDate(m.date),95)[0],47,21);
-  font(FD,18,[255,255,255]);doc.text(PERIODS[m.period].toUpperCase()+'  '+fmtClock(m.el[m.period]),Rx,14,{align:'right'});
-  font(F,8,[190,200,235]);doc.text('Situation à '+hm+(m.running?' · chrono en cours':' · chrono arrêté'),Rx,22,{align:'right'});
+  if(arch){
+    font(FD,18,[255,255,255]);doc.text('TOTAL  '+fmt(g),Rx,14,{align:'right'});
+    font(F,8,[190,200,235]);doc.text('Match archivé le '+fmtDate(new Date(VIEW.saved).toISOString().slice(0,10)),Rx,22,{align:'right'});
+  }else{
+    font(FD,18,[255,255,255]);doc.text(m.finished?'FIN DU MATCH  '+fmt(g):PERIODS[m.period].toUpperCase()+'  '+fmtClock(m.el[m.period]),Rx,14,{align:'right'});
+    font(F,8,[190,200,235]);doc.text(m.finished?'Match terminé · rapport généré à '+hm:'Situation à '+hm+(m.running?' · chrono en cours':' · chrono arrêté'),Rx,22,{align:'right'});
+  }
   let y=42;
   // indicateurs
-  const rows=S.roster.map(p=>{const s=m.st[p.id]||{per:[0,0,0,0],entries:0,twoMin:0,dq:false,starter:false,inAt:null,outAt:null};return {p,s,tot:s.per.reduce((a,b)=>a+b,0)};})
+  const rows=roster.map(p=>{const s=m.st[p.id]||{per:[0,0,0,0],entries:0,twoMin:0,dq:false,starter:false,inAt:null,outAt:null};return {p,s,tot:s.per.reduce((a,b)=>a+b,0)};})
     .sort((a,b)=>b.tot-a.tot||(+a.p.num)-(+b.p.num));
   const used=rows.filter(r=>r.s.entries>0).length;
   const subs=Math.max(0,m.log.filter(l=>l.t==='sub'||l.t==='in').length-rows.filter(r=>r.s.starter).length);
@@ -1069,18 +1118,20 @@ function buildReport(){
     font(FD,16,NAVY);doc.text(v[0],x+4,y+8.5);font(F,7.5,GREY);doc.text(v[1],x+4,y+13.5);});
   y+=24;
   // situation
-  const onTxt=m.on.map(id=>{const p=P(id);return p?'#'+p.num+' '+p.name:'';}).filter(Boolean).join(' · ')||'personne';
-  font(FB,9,NAVY);doc.text('Sur le terrain ('+m.on.length+'/'+capacity()+')',L,y);
+  if(!arch){
+  const onTxt=m.on.map(P).filter(Boolean).sort((a,b)=>(+a.num||999)-(+b.num||999)).map(p=>'#'+p.num+' '+p.name).join(' · ')||'personne';
+  font(FB,9,NAVY);doc.text('Sur le terrain ('+m.on.length+'/'+cap+')',L,y);
   font(F,9,INK);const ol=doc.splitTextToSize(onTxt,Rx-L-38);doc.text(ol,L+38,y);y+=ol.length*4.6;
   const act=m.excl.filter(e=>e.rem>0);
   if(act.length){font(FB,9,RED);doc.text('Infériorité',L,y);font(F,9,RED);
     doc.text(act.map(e=>{const p=P(e.id);return (p?'#'+p.num+' '+p.name:'')+' ('+(e.dq?'disqualifié, ':'')+fmt(e.rem+999)+' restantes)';}).join(' · '),L+38,y);y+=4.6;}
   y+=4;
+  }
   // tableau
   const ot=m.el[2]>0||m.el[3]>0||m.period>=2;
-  const cols=[{k:'n',t:'N°',w:8},{k:'name',t:'Joueur',w:0},{k:'pos',t:'Poste',w:11},{k:'st',t:'Statut',w:22},{k:'m1',t:'1re MT',w:14,r:1},{k:'m2',t:'2e MT',w:14,r:1}];
+  const cols=[{k:'n',t:'N°',w:8},{k:'name',t:'Joueur',w:0},{k:'pos',t:'Poste',w:11},{k:'m1',t:'1re MT',w:14,r:1},{k:'m2',t:'2e MT',w:14,r:1}];
   if(ot)cols.push({k:'pr',t:'Prol.',w:13,r:1});
-  cols.push({k:'tot',t:'Total',w:15,r:1},{k:'pct',t:'% du match',w:ot?20:24},{k:'seq',t:'En cours',w:ot?18:20,r:1},{k:'ent',t:'Entrées',w:12,r:1},{k:'two',t:'2 min',w:9,r:1});
+  cols.push({k:'tot',t:'Total',w:15,r:1},{k:'pct',t:'% du match',w:ot?20:24},{k:'seq',t:arch?'Moy./entrée':'En cours',w:ot?18:20,r:1},{k:'ent',t:'Entrées',w:12,r:1},{k:'two',t:'2 min',w:9,r:1});
   const fixed=cols.reduce((a,c)=>a+c.w,0);cols[1].w=(Rx-L)-fixed;
   let x=L;cols.forEach(c=>{c.x=x;x+=c.w;});
   const head=()=>{doc.setFillColor.apply(doc,NAVY);doc.rect(L,y,Rx-L,7,'F');font(FB,7,[255,255,255]);
@@ -1089,14 +1140,14 @@ function buildReport(){
   const maxT=rows.reduce((a,r)=>Math.max(a,r.tot),0);
   rows.forEach((r,i)=>{
     if(y>270){doc.addPage();y=16;head();}
-    const id=r.p.id,on=m.on.includes(id),e=m.excl.find(z=>z.id===id&&z.rem>0);
+    const id=r.p.id,on=!arch&&m.on.includes(id),e=!arch&&m.excl.find(z=>z.id===id&&z.rem>0);
     if(i%2){doc.setFillColor(245,247,253);doc.rect(L,y,Rx-L,7,'F');}
-    let stt='Banc',sc=GREY;
+    let stt=arch?(r.s.starter?'Titulaire':(r.s.entries?'Remplaçant':'Non entré')):'Banc',sc=arch&&r.s.entries?BLUE:GREY;
     if(on){stt='Terrain';sc=BLUE;doc.setFillColor(228,236,255);doc.rect(L,y,Rx-L,7,'F');}
     if(e){stt=e.dq?'Disqualifié':'Exclu '+fmt(e.rem+999);sc=RED;doc.setFillColor(253,232,230);doc.rect(L,y,Rx-L,7,'F');}
     else if(r.s.dq){stt=r.s.card==='blue'?'Carton bleu':'Disqualifié';sc=RED;}
     if(on||e){doc.setFillColor.apply(doc,e?RED:BLUE);doc.rect(L,y,1.2,7,'F');}
-    const seq=on?'en jeu '+fmt(g-(r.s.inAt!=null?r.s.inAt:g)):(r.s.outAt!=null?'repos '+fmt(g-r.s.outAt):'—');
+    const seq=arch?(r.s.entries?fmt(r.tot/r.s.entries):'—'):on?'en jeu '+fmt(g-(r.s.inAt!=null?r.s.inAt:g)):(r.s.outAt!=null?'repos '+fmt(g-r.s.outAt):'—');
     const pct=g?Math.round(r.tot/g*100):0;
     const cy=y+4.8;
     cols.forEach(c=>{
@@ -1123,43 +1174,226 @@ function buildReport(){
     });
     y+=7;
   });
-  font(F,7,GREY);doc.text('(T) titulaire · % du match = temps joué / temps de jeu écoulé · « En cours » = durée de la séquence actuelle sur le terrain ou au repos',L,y+4);
+  font(F,7,GREY);doc.text(arch?'(T) titulaire · % du match = temps joué / temps de jeu total · Moy./entrée = durée moyenne d\'une séquence sur le terrain':'(T) titulaire · % du match = temps joué / temps de jeu écoulé · « En cours » = durée de la séquence actuelle sur le terrain ou au repos',L,y+4);
   y+=11;
   // dernières rotations
-  const ev=m.log.filter(l=>['sub','in','out','2min','red','blue','pend'].includes(l.t)).slice(-14).reverse();
-  if(ev.length){
-    if(y>255){doc.addPage();y=16;}
-    font(FD,13,NAVY);doc.text('DERNIÈRES ROTATIONS',L,y);y+=6;
-    ev.forEach(l=>{
-      if(y>282){doc.addPage();y=16;}
-      font(FD,9.5,GREY);doc.text(PERIODS[l.p].toUpperCase()+' '+fmtClock(l.c),L,y);
-      let t='',col=INK;
-      if(l.t==='sub')t='Entre '+pname(l.id)+'  ·  sort '+pname(l.id2);
-      else if(l.t==='in')t='Entre '+pname(l.id);
-      else if(l.t==='out')t='Sort '+pname(l.id);
-      else if(l.t==='2min'){t='2 min : '+pname(l.id);col=RED;}
-      else if(l.t==='red'){t='Carton rouge : '+pname(l.id);col=RED;}
-      else if(l.t==='blue'){t='Carton bleu : '+pname(l.id);col=RED;}
-      else if(l.t==='pend')t='Fin de la '+PERIODS[l.p];
-      font(F,9,col);doc.text(t,L+30,y);y+=5;
-    });
-  }
   // pied de page
   const n=doc.getNumberOfPages();
   for(let i=1;i<=n;i++){doc.setPage(i);doc.setDrawColor(220,224,240);doc.line(L,287,Rx,287);
     font(F,7,GREY);doc.text('Temps de jeu handball · rapport du '+fmtDate(m.date)+' généré à '+hm,L,291);doc.text(i+'/'+n,Rx,291,{align:'right'});}
   const slug=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^\w]+/g,'-').replace(/^-|-$/g,'');
-  const fname='rapport-'+slug(team)+(m.opp?'-vs-'+slug(m.opp):'')+'-'+slug(PERIODS[m.period])+'-'+fmtClock(m.el[m.period]).replace(':','h')+'.pdf';
+  const fname='rapport-'+slug(team)+(m.opp?'-vs-'+slug(m.opp):'')+'-'+(arch?(m.date||'match')+'-final':slug(PERIODS[m.period])+'-'+fmtClock(m.el[m.period]).replace(':','h'))+'.pdf';
   return {blob:doc.output('blob'),name:fname};
 }
 $('reportBtn').addEventListener('click',()=>{
   commit();save();
-  let r=null;try{r=buildReport();}catch(e){}
+  let r=null;try{r=buildReport();}catch(e){console.error(e);}
   if(!r){toast('Impossible de créer le PDF : recharge l\'app avec une connexion puis réessaie');return;}
   const dest=T().dest;
   offerFile(r.name,r.blob,'Rapport PDF'+(dest?' pour '+dest:''),'application/pdf');
   if(dest)toast('Choisis « '+dest+' » dans WhatsApp');
 });
+
+/* ---------- Commande vocale ---------- */
+/* Grammaire courte et vérifiée contre l'état du match : robuste au bruit des tribunes.
+   Mode 1 : reconnaissance du navigateur (appui maintenu sur le micro = parler, relâcher = envoyer).
+   Mode 2 (app installée, sans reconnaissance) : dictée du clavier iOS dans une barre de commande. */
+const VN=(()=>{const u=['zero','un','deux','trois','quatre','cinq','six','sept','huit','neuf','dix','onze','douze','treize','quatorze','quinze','seize'];
+  const map={};u.forEach((w,i)=>map[w]=i);map['dix sept']=17;map['dix huit']=18;map['dix neuf']=19;
+  const T={20:'vingt',30:'trente',40:'quarante',50:'cinquante',60:'soixante'};
+  [20,30,40,50,60].forEach(t=>{map[T[t]]=t;map[T[t]+' et un']=t+1;map[T[t]+' un']=t+1;for(let k=2;k<10;k++)map[T[t]+' '+u[k]]=t+k;});
+  for(let k=10;k<20;k++){const w=k<17?u[k]:'dix '+u[k-10];map['soixante '+w]=60+k;map['quatre vingt '+w]=80+k;}
+  map['soixante et onze']=71;map['quatre vingt']=80;map['quatre vingts']=80;for(let k=1;k<10;k++)map['quatre vingt '+u[k]]=80+k;
+  Object.assign(map,{hein:1,une:1,cette:7,cet:7,set:7,oeuf:9,dis:10,scie:6});
+  return Object.keys(map).sort((a,b)=>b.length-a.length).map(k=>[k,map[k]]);})();
+function vnorm(t){return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[’'`]/g,' ').replace(/[-–—_]/g,' ').replace(/[.,;:!?«»"()]/g,' ').replace(/\s+/g,' ').trim();}
+function vnums(t){let s=' '+t+' ';VN.forEach(([w,n])=>{s=s.split(' '+w+' ').join(' '+n+' ');});return s.trim().replace(/\s+/g,' ');}
+function vplayer(tok){
+  const R0=S.roster;
+  if(/^\d+$/.test(tok))return R0.find(p=>String(p.num)===String(+tok))||R0.find(p=>String(p.num)===tok)||null;
+  if(tok.length<3)return null;
+  const lev=(a,b)=>{const d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]===b[j-1]?0:1));p=t;}}return d[b.length];};
+  let best=null,bd=9;
+  R0.forEach(p=>vnorm(p.name).split(' ').forEach(w=>{if(w.length<3)return;const d=lev(tok,w),lim=w.length>5?1:0;if(d<=lim&&d<bd){bd=d;best=p;}}));
+  return best;
+}
+const VKEY=[
+  ['undo',/\b(annule|annuler|oups|retour)\b/],
+  ['pause',/\b(pause|stop|arret|temps mort)\b/],
+  ['start',/\b(reprise|reprend|reprends|go|top|demarre|demarrer|c est parti)\b/],
+  ['blue',/\b(carton bleu|bleu)\b/],
+  ['red',/\b(carton rouge|rouge|disqualification|disqualifie)\b/],
+  ['2min',/\b(2 minutes?|deux minutes?|2 min|deux min|2mn|exclusion|exclu|exclue)\b/]
+];
+function vparse(raw){
+  const t0=vnorm(raw);if(!t0)return {err:'rien entendu'};
+  for(const [k,re] of VKEY){
+    if(!re.test(t0))continue;
+    if(k==='undo'||k==='pause'||k==='start')return {type:k,txt:raw};
+    const rest=vnums(t0.replace(re,' ')).split(' ').filter(Boolean);
+    const ps=rest.map(vplayer).filter(Boolean);
+    if(!ps.length)return {err:'joueur non reconnu',txt:raw};
+    return {type:k,a:ps[0],txt:raw};
+  }
+  const t=vnums(t0);
+  const toks=t.split(' ');
+  // « X pour Y », « X remplace Y », « X à la place de Y », « X contre Y »
+  const sw=t.match(/^(.*?)\b(pour|remplace|a la place de|place de|contre|sur)\b(.*)$/);
+  if(sw){const a=sw[1].split(' ').filter(Boolean).map(vplayer).filter(Boolean).pop(),b=sw[3].split(' ').filter(Boolean).map(vplayer).filter(Boolean)[0];
+    if(a&&b)return {type:'sub',a,b,txt:raw};
+    return {err:'joueur non reconnu',txt:raw};}
+  // « entre X sort Y » / « sort Y entre X »
+  const ei=t.match(/\b(entre|entree|rentre|in)\b\s*(\S+)/),so=t.match(/\b(sort|sortie|sors|out|dehors)\b\s*(\S+)/);
+  const ei2=t.match(/(\S+)\s*\b(entre|rentre)\b/),so2=t.match(/(\S+)\s*\b(sort|sors)\b/);
+  const pin=(ei&&vplayer(ei[2]))||(ei2&&vplayer(ei2[1]))||null,pout=(so&&vplayer(so[2]))||(so2&&vplayer(so2[1]))||null;
+  if(pin&&pout)return {type:'sub',a:pin,b:pout,txt:raw};
+  if(pin)return {type:'in',a:pin,txt:raw};
+  if(pout)return {type:'out',a:pout,txt:raw};
+  if(ei||so||ei2||so2)return {err:'joueur non reconnu',txt:raw};
+  const unknown=toks.filter(x=>/^\d+$/.test(x)&&!vplayer(x));
+  if(unknown.length)return {err:'numéro '+unknown[0]+' absent de l\'effectif',txt:raw};
+  // un ou deux numéros seuls : bascule terrain / banc, ou échange
+  const ps=toks.map(vplayer).filter(Boolean);
+  if(ps.length===1)return {type:'toggle',a:ps[0],txt:raw};
+  if(ps.length===2)return {type:'pair',a:ps[0],b:ps[1],txt:raw};
+  return {err:'commande non reconnue',txt:raw};
+}
+function vcheck(c){
+  const m=S.m,on=id=>m.on.includes(id),ex=id=>{const e=isExcl(id);return e&&e.rem>0;},dq=id=>st(id).dq;
+  const lab=p=>'#'+p.num+' '+p.name;
+  switch(c.type){
+    case 'undo':return undo.length?{ok:1,label:'Annuler la dernière action'}:{err:'rien à annuler'};
+    case 'pause':return m.running?{ok:1,label:'Pause du chrono'}:{err:'le chrono est déjà arrêté'};
+    case 'start':return !m.running?{ok:1,label:'Chrono lancé'}:{err:'le chrono tourne déjà'};
+    case 'in':if(on(c.a.id))return {err:lab(c.a)+' est déjà sur le terrain'};if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est exclu'};
+      if(m.on.length>=capacity())return {err:'terrain complet : dis « '+c.a.num+' pour … »'};return {ok:1,label:'Entre '+lab(c.a)};
+    case 'out':return on(c.a.id)?{ok:1,label:'Sort '+lab(c.a)}:{err:lab(c.a)+' n\'est pas sur le terrain'};
+    case 'toggle':return on(c.a.id)?(c.type='out',vcheck(c)):(c.type='in',vcheck(c));
+    case 'pair':{if(on(c.b.id)&&!on(c.a.id)){c.type='sub';return vcheck(c);}if(on(c.a.id)&&!on(c.b.id)){const t=c.a;c.a=c.b;c.b=t;c.type='sub';return vcheck(c);}return {err:'précise qui entre et qui sort'};}
+    case 'sub':if(!on(c.b.id))return {err:lab(c.b)+' n\'est pas sur le terrain'};if(on(c.a.id))return {err:lab(c.a)+' est déjà sur le terrain'};
+      if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est exclu'};return {ok:1,label:'Entre '+lab(c.a)+' · sort '+lab(c.b)};
+    case '2min':case 'red':case 'blue':if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est déjà exclu'};
+      return {ok:1,label:{'2min':'2 minutes','red':'Carton rouge','blue':'Carton bleu'}[c.type]+' : '+lab(c.a)};
+  }
+  return {err:'commande non reconnue'};
+}
+function vexec(c){
+  pick=null;sel=null;
+  switch(c.type){
+    case 'undo':doUndo();break;
+    case 'pause':case 'start':toggleClock();break;
+    case 'in':doEnter(c.a.id);break;
+    case 'out':doLeave(c.a.id);break;
+    case 'sub':doSwap(c.a.id,c.b.id);break;
+    case '2min':doTwoMin(c.a.id);break;
+    case 'red':case 'blue':doDisq(c.a.id,c.type);break;
+  }
+}
+/* Essaie chaque transcription proposée (alternatives) et garde la première cohérente avec le match. */
+function handleVoice(alts){
+  alts=(alts||[]).filter(a=>a&&a.trim());
+  if(!alts.length){voiceFeedback(null,'Rien entendu : rapproche le micro et réessaie');return;}
+  let firstErr=null;
+  for(const a of alts){
+    const c=vparse(a);if(c.err){firstErr=firstErr||[a,c.err];continue;}
+    const v=vcheck(c);if(v.err){firstErr=firstErr||[a,v.err];continue;}
+    if(view!=='match')showView('match');
+    vexec(c);voiceFeedback(v.label,null,a);return;
+  }
+  voiceFeedback(null,'« '+firstErr[0].trim()+' » : '+firstErr[1]);
+}
+function voiceFeedback(ok,err,heard){
+  const el=$('voiceLast'),barOpen=$('voicebar').classList.contains('show');
+  if(ok){
+    if(!barOpen)toast('🎤 '+ok,'Annuler',()=>doUndo());
+    el.className='vlast';el.innerHTML='<b>'+esc(ok)+'</b>'+(heard?' · entendu « '+esc(heard.trim())+' »':'')+' <button class="btn vundo" type="button">Annuler</button>';
+    const u=el.querySelector('.vundo');if(u)u.onclick=()=>{doUndo();el.className='vlast';el.innerHTML='Dernière action annulée.';$('voiceIn').focus();};
+  }else{
+    if(!barOpen)toast('🎤 '+err);
+    el.className='vlast err';el.innerHTML='<b>Pas exécuté</b> · '+esc(err);
+  }
+}
+const SRC=window.SpeechRecognition||window.webkitSpeechRecognition;
+let rec=null,recT0=0,recTimer=null;
+function micState(on){$('micBtn').setAttribute('aria-pressed',String(on));}
+function srStart(){
+  if(rec)return;
+  try{rec=new SRC();}catch(e){rec=null;openVoiceBar();return;}
+  rec.lang='fr-FR';rec.continuous=false;rec.interimResults=false;rec.maxAlternatives=5;
+  let got=false;
+  rec.onresult=e=>{got=true;const alts=[];for(let i=0;i<e.results.length;i++)for(let j=0;j<e.results[i].length;j++)alts.push(e.results[i][j].transcript);handleVoice(alts);};
+  rec.onerror=e=>{const er=e&&e.error;
+    if(er==='not-allowed'||er==='service-not-allowed'){SRok=false;toast('Reconnaissance vocale indisponible ici : dictée du clavier activée');openVoiceBar();}
+    else if(er==='no-speech'){toast('🎤 Rien entendu');}
+    else if(er&&er!=='aborted')toast('🎤 Erreur micro ('+er+')');};
+  rec.onend=()=>{clearTimeout(recTimer);rec=null;micState(false);};
+  try{rec.start();recT0=Date.now();micState(true);recTimer=setTimeout(srStop,7000);}catch(e){rec=null;micState(false);openVoiceBar();}
+}
+function srStop(){clearTimeout(recTimer);if(rec){try{rec.stop();}catch(e){}}}
+let SRok=!!SRC&&!(navigator.standalone||matchMedia('(display-mode: standalone)').matches&&/iPhone|iPad|Macintosh/.test(navigator.userAgent));
+const mic=$('micBtn');
+mic.addEventListener('pointerdown',e=>{if(!SRok)return;e.preventDefault();if(rec){srStop();return;}srStart();});
+mic.addEventListener('click',()=>{if(SRok)return;if($('voicebar').classList.contains('show'))closeVoiceBar();else openVoiceBar();});
+mic.addEventListener('pointerup',()=>{if(rec&&Date.now()-recT0>450)srStop();});
+mic.addEventListener('pointercancel',()=>{if(rec&&Date.now()-recT0>450)srStop();});
+mic.addEventListener('contextmenu',e=>e.preventDefault());
+/* Mode dictée clavier */
+let vProcessed=0,vTimer=null;
+function openVoiceBar(){
+  const b=$('voicebar');b.classList.add('show');micState(true);
+  const i=$('voiceIn');i.value='';vProcessed=0;i.focus();
+}
+function closeVoiceBar(){$('voicebar').classList.remove('show');micState(false);$('voiceIn').blur();}
+function voiceFlush(){
+  const i=$('voiceIn'),txt=i.value.slice(vProcessed);vProcessed=i.value.length;
+  const parts=txt.split(/[.!?\n]+|\b(?:puis|et puis|ensuite)\b/i).map(x=>x.trim()).filter(Boolean);
+  parts.forEach(p=>handleVoice([p]));
+  if(i.value.length>160){i.value='';vProcessed=0;}
+}
+$('voiceIn').addEventListener('input',()=>{clearTimeout(vTimer);vTimer=setTimeout(voiceFlush,900);});
+$('voiceIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(vTimer);voiceFlush();}});
+$('voiceClose').addEventListener('click',closeVoiceBar);
+$('voiceHelp').addEventListener('click',openVoiceHelp);
+function openVoiceHelp(){
+  openDlg('<h4>Commandes vocales</h4>'+
+    '<div class="vhelp">'+
+    '<b>7 pour 9</b><span>le 7 entre, le 9 sort (aussi « 7 remplace 9 », « entre 7 sort 9 »)</span>'+
+    '<b>entre 7</b><span>le 7 entre (s\'il reste une place)</span>'+
+    '<b>sort 9</b><span>le 9 va sur le banc</span>'+
+    '<b>7</b><span>un numéro seul : le joueur entre s\'il est au banc, sort s\'il est sur le terrain</span>'+
+    '<b>2 minutes 5</b><span>exclusion du 5 (aussi « exclusion 5 »)</span>'+
+    '<b>rouge 5 · bleu 5</b><span>carton rouge / carton bleu</span>'+
+    '<b>pause · reprise</b><span>arrêt / relance du chrono (aussi « temps mort », « top »)</span>'+
+    '<b>annule</b><span>annule la dernière action</span>'+
+    '</div>'+
+    '<p>Les noms de famille marchent aussi (« Dupont pour Martin »). Une commande incohérente avec le match (joueur déjà en jeu, terrain complet…) est ignorée et signalée : rien n\'est modifié par erreur. Chaque action reste annulable.</p>'+
+    '<p><b>En tribune :</b> parle près du micro, en commandes courtes. Un kit main-libre ou des écouteurs avec micro (AirPods…) filtrent nettement mieux le bruit de la salle. '+
+    (SRok?'Maintiens le bouton micro pendant que tu parles, relâche pour valider.':'Dans l\'app installée, iOS ne propose pas la reconnaissance vocale aux apps web : touche le micro du clavier (dictée) ; chaque commande est exécutée dès que tu marques une pause. Active la dictée dans Réglages › Général › Clavier si le micro n\'apparaît pas.')+'</p>'+
+    '<div class="btns"><button class="btn primary" data-close>OK</button></div>');
+}
+
+/* ---------- Fin de match ---------- */
+function savedBox(rec,title){
+  const m=rec?rec.m:S.m,g=rec?histTotal(rec):gameMs();
+  const when=rec?new Date(rec.saved):new Date();
+  return '<div class="saved-ok"><span class="ck">✓</span><span><b>'+esc(title)+'</b>'+
+    esc((rec?rec.team:T().name)+(m.opp?' vs '+m.opp:'')+' · '+fmtDate(m.date)+' · '+fmt(g)+' joués')+'<br>Enregistré à '+hhmmss(when.getTime()).slice(0,5)+' dans l\'historique (onglet Temps de jeu)</span></span></div>';
+}
+function showEndDlg(){
+  const m=S.m,rec=S.history.find(h=>h.id===m.id);
+  const ot=m.period===1;
+  openDlg('<h4>Fin du match</h4>'+savedBox(rec,'Match enregistré')+
+    '<div class="end-actions">'+
+      '<button class="btn primary" id="endPdf">Envoyer le rapport PDF</button>'+
+      '<button class="btn blue" id="endStats">Voir les temps de jeu</button>'+
+      (ot?'<button class="btn" id="endOt">Jouer la prolongation</button>':'')+
+      '<button class="btn" id="endNew">Nouveau match</button>'+
+    '</div><div class="btns"><button class="btn" data-close>Fermer</button></div>');
+  $('endPdf').onclick=()=>{closeDlg();$('reportBtn').click();};
+  $('endStats').onclick=()=>{closeDlg();showView('stats');};
+  if(ot)$('endOt').onclick=()=>{closeDlg();changePeriod(1);toast('Prolongation : lance le chrono au coup d\'envoi');};
+  $('endNew').onclick=()=>{closeDlg();resetMatch(S.m);save();renderAll();showView('match');toast('Nouveau match prêt · le précédent est dans l\'historique');};
+}
 
 /* ---------- Historique des matchs ---------- */
 function archiveCurrent(){
@@ -1196,7 +1430,10 @@ function openHistory(){
   $('hlist').addEventListener('click',e=>{const b=e.target.closest('[data-hist]');if(!b)return;
     VIEW=S.history.find(h=>h.id===b.dataset.hist)||null;closeDlg();showView('stats');});
   if($('histEnd'))$('histEnd').onclick=()=>{closeDlg();confirmDlg('Terminer le match en cours ?','Il est archivé dans l\'historique et un nouveau match vide est prêt avec la même équipe.','Terminer et archiver',()=>{
-    resetMatch(S.m);save();renderAll();toast('Match archivé dans l\'historique');});};
+    const id=S.m.id;resetMatch(S.m);save();renderAll();
+    const rec=S.history.find(h=>h.id===id);
+    openDlg('<h4>Match terminé</h4>'+savedBox(rec,'Match enregistré')+'<div class="end-actions"><button class="btn blue" id="savedView">Voir ce match</button><button class="btn primary" data-close>OK</button></div>');
+    $('savedView').onclick=()=>{closeDlg();VIEW=rec||null;showView('stats');};});};
 }
 $('histBtn').addEventListener('click',openHistory);
 
@@ -1423,7 +1660,7 @@ document.addEventListener('visibilitychange',()=>{commit();save();if(!document.h
 window.addEventListener('pagehide',()=>{commit();save();});
 
 commit();renderAll();
-window.__tdj={S:()=>S,buildReport:()=>buildReport()};
+window.__tdj={S:()=>S,buildReport:()=>buildReport(),voice:a=>handleVoice(a),vparse:t=>vparse(t)};
 if('serviceWorker' in navigator&&!/claude/.test(location.hostname)&&(location.protocol==='https:'||location.hostname==='localhost')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;
