@@ -87,12 +87,12 @@ header.board{
 .mic-btn[aria-pressed="true"]{background:var(--sky);color:var(--navy);animation:micpulse 1s ease-in-out infinite}
 @keyframes micpulse{50%{box-shadow:0 0 0 6px rgba(77,169,225,.35)}}
 @media (prefers-reduced-motion:reduce){.mic-btn[aria-pressed="true"]{animation:none}}
-.voicebar{position:fixed;left:50%;transform:translateX(-50%);top:calc(8px + env(safe-area-inset-top));z-index:15;width:min(640px,calc(100% - 20px));
-  background:var(--navy);border:2px solid var(--sky);border-radius:16px;padding:10px 12px;display:none;flex-direction:column;gap:8px;box-shadow:0 10px 30px rgba(0,0,0,.55)}
+.voicebar{position:relative;z-index:4;margin:8px 20px 0;background:var(--navy);border:2px solid var(--sky);border-radius:14px;padding:8px 10px;display:none;flex-direction:column;gap:6px;flex:none}
 .voicebar.show{display:flex}
 .voicebar .vrow{display:flex;gap:8px;align-items:center}
 .voicebar input{flex:1;min-width:0;height:48px}
-.voicebar .vlast{font-size:13px;color:var(--muted);min-height:18px}
+.voicebar .vlast{font-size:12.5px;color:var(--muted);min-height:16px;line-height:1.3}
+@media (max-width:600px){.voicebar{margin:6px 10px 0;padding:6px 8px}.voicebar input{height:42px}.voicebar .btn{height:42px;padding:0 10px}}
 .voicebar .vlast b{color:var(--accent)}
 .voicebar .vundo{height:34px;padding:0 10px;font-size:13px;margin-left:6px}
 .voicebar .vlast.err b{color:#ff8a7f}
@@ -452,6 +452,15 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
     <button class="go" id="goBtn">DÉMARRER</button>
   </div>
 </header>
+<div class="voicebar" id="voicebar" role="dialog" aria-label="Commande vocale par dictée">
+  <div class="vrow">
+    <input id="voiceIn" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" placeholder="Touche le micro du clavier, puis dis « 9 pour 7 »" aria-label="Commande dictée">
+    <button class="btn" id="voiceHelp" aria-label="Aide commandes vocales">?</button>
+    <button class="btn" id="voiceClose">Désactiver</button>
+  </div>
+  <div class="vlast" id="voiceLast">🎤 Active · dicte « 9 pour 7 » (9 sort, 7 entre)</div>
+</div>
+
 
 <main>
   <section class="view active" id="view-match" aria-label="Match">
@@ -530,14 +539,6 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   </section>
 </main>
 
-<div class="voicebar" id="voicebar" role="dialog" aria-label="Commande vocale par dictée">
-  <div class="vrow">
-    <input id="voiceIn" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" placeholder="Touche le micro du clavier et dis « 7 pour 9 »" aria-label="Commande dictée">
-    <button class="btn" id="voiceHelp" aria-label="Aide commandes vocales">?</button>
-    <button class="btn" id="voiceClose">Fermer</button>
-  </div>
-  <div class="vlast" id="voiceLast">Dicte une commande ; elle est exécutée dès que tu marques une pause.</div>
-</div>
 <div class="actionbar" id="actionbar" role="toolbar" aria-label="Joueur sélectionné"></div>
 
 <nav class="tabs" role="tablist">
@@ -554,7 +555,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.5.2';
+const APP_VERSION='1.6.1';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -1219,8 +1220,8 @@ function vplayer(tok){
 }
 const VKEY=[
   ['undo',/\b(annule|annuler|oups|retour)\b/],
-  ['pause',/\b(pause|stop|arret|temps mort)\b/],
-  ['start',/\b(reprise|reprend|reprends|go|top|demarre|demarrer|c est parti)\b/],
+  ['pause',/\b(pause|stop|stoppe|stopper|arret|arrete|arreter|arretez|temps mort)\b/],
+  ['start',/\b(reprise|reprendre|reprend|reprends|reprenez|reprenons|go|top|demarre|demarrer|demarrez|demarrage|relance|relancer|lance|lancer|c est parti|start)\b/],
   ['blue',/\b(carton bleu|bleu)\b/],
   ['red',/\b(carton rouge|rouge|disqualification|disqualifie)\b/],
   ['2min',/\b(2 minutes?|deux minutes?|2 min|deux min|2mn|exclusion|exclu|exclue)\b/]
@@ -1238,9 +1239,10 @@ function vparse(raw){
   const t=vnums(t0);
   const toks=t.split(' ');
   // « X pour Y », « X remplace Y », « X à la place de Y », « X contre Y »
-  const sw=t.match(/^(.*?)\b(pour|remplace|a la place de|place de|contre|sur)\b(.*)$/);
-  if(sw){const a=sw[1].split(' ').filter(Boolean).map(vplayer).filter(Boolean).pop(),b=sw[3].split(' ').filter(Boolean).map(vplayer).filter(Boolean)[0];
-    if(a&&b)return {type:'sub',a,b,txt:raw};
+  // Convention du staff : on nomme d'abord le joueur qui SORT, puis celui qui ENTRE (« 9 pour 7 »)
+  const sw=t.match(/^(.*?)\b(remplace par|pour|remplace|par|a la place de|place de|contre|sur)\b(.*)$/);
+  if(sw){const out=sw[1].split(' ').filter(Boolean).map(vplayer).filter(Boolean).pop(),inn=sw[3].split(' ').filter(Boolean).map(vplayer).filter(Boolean)[0];
+    if(out&&inn)return {type:'sub',a:inn,b:out,txt:raw};
     return {err:'joueur non reconnu',txt:raw};}
   // « entre X sort Y » / « sort Y entre X »
   const ei=t.match(/\b(entre|entree|rentre|in)\b\s*(\S+)/),so=t.match(/\b(sort|sortie|sors|out|dehors)\b\s*(\S+)/);
@@ -1254,8 +1256,8 @@ function vparse(raw){
   if(unknown.length)return {err:'numéro '+unknown[0]+' absent de l\'effectif',txt:raw};
   // un ou deux numéros seuls : bascule terrain / banc, ou échange
   const ps=toks.map(vplayer).filter(Boolean);
-  if(ps.length===1)return {type:'toggle',a:ps[0],txt:raw};
-  if(ps.length===2)return {type:'pair',a:ps[0],b:ps[1],txt:raw};
+  /* Écoute permanente : un ou deux numéros seuls (bruit de tribune) ne déclenchent rien */
+  if(ps.length)return {err:'ajoute « pour », « entre » ou « sort » (ex. « 9 pour 7 »)',txt:raw};
   return {err:'commande non reconnue',txt:raw};
 }
 function vcheck(c){
@@ -1266,12 +1268,14 @@ function vcheck(c){
     case 'pause':return m.running?{ok:1,label:'Pause du chrono'}:{err:'le chrono est déjà arrêté'};
     case 'start':return !m.running?{ok:1,label:'Chrono lancé'}:{err:'le chrono tourne déjà'};
     case 'in':if(on(c.a.id))return {err:lab(c.a)+' est déjà sur le terrain'};if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est exclu'};
-      if(m.on.length>=capacity())return {err:'terrain complet : dis « '+c.a.num+' pour … »'};return {ok:1,label:'Entre '+lab(c.a)};
+      if(m.on.length>=capacity())return {err:'terrain complet : dis « … pour '+c.a.num+' »'};return {ok:1,label:'Entre '+lab(c.a)};
     case 'out':return on(c.a.id)?{ok:1,label:'Sort '+lab(c.a)}:{err:lab(c.a)+' n\'est pas sur le terrain'};
     case 'toggle':return on(c.a.id)?(c.type='out',vcheck(c)):(c.type='in',vcheck(c));
-    case 'pair':{if(on(c.b.id)&&!on(c.a.id)){c.type='sub';return vcheck(c);}if(on(c.a.id)&&!on(c.b.id)){const t=c.a;c.a=c.b;c.b=t;c.type='sub';return vcheck(c);}return {err:'précise qui entre et qui sort'};}
+    case 'pair':{/* 1er nommé = sortant ; si l'inverse seul est possible, on l'applique */
+      if(on(c.a.id)&&!on(c.b.id)){const t=c.a;c.a=c.b;c.b=t;c.type='sub';return vcheck(c);}
+      if(on(c.b.id)&&!on(c.a.id)){c.type='sub';return vcheck(c);}return {err:'précise qui sort et qui entre'};}
     case 'sub':if(!on(c.b.id))return {err:lab(c.b)+' n\'est pas sur le terrain'};if(on(c.a.id))return {err:lab(c.a)+' est déjà sur le terrain'};
-      if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est exclu'};return {ok:1,label:'Entre '+lab(c.a)+' · sort '+lab(c.b)};
+      if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est exclu'};return {ok:1,label:'Sort '+lab(c.b)+' · entre '+lab(c.a)};
     case '2min':case 'red':case 'blue':if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est déjà exclu'};
       return {ok:1,label:{'2min':'2 minutes','red':'Carton rouge','blue':'Carton bleu'}[c.type]+' : '+lab(c.a)};
   }
@@ -1314,36 +1318,49 @@ function voiceFeedback(ok,err,heard){
   }
 }
 const SRC=window.SpeechRecognition||window.webkitSpeechRecognition;
-let rec=null,recT0=0,recTimer=null;
+/* La commande vocale reste active tant qu'on ne la coupe pas avec le bouton micro. */
+let rec=null,voiceOn=false,restartT=null;
 function micState(on){$('micBtn').setAttribute('aria-pressed',String(on));}
-function srStart(){
-  if(rec)return;
-  try{rec=new SRC();}catch(e){rec=null;openVoiceBar();return;}
-  rec.lang='fr-FR';rec.continuous=false;rec.interimResults=false;rec.maxAlternatives=5;
-  let got=false;
-  rec.onresult=e=>{got=true;const alts=[];for(let i=0;i<e.results.length;i++)for(let j=0;j<e.results[i].length;j++)alts.push(e.results[i][j].transcript);handleVoice(alts);};
-  rec.onerror=e=>{const er=e&&e.error;
-    if(er==='not-allowed'||er==='service-not-allowed'){SRok=false;toast('Reconnaissance vocale indisponible ici : dictée du clavier activée');openVoiceBar();}
-    else if(er==='no-speech'){toast('🎤 Rien entendu');}
-    else if(er&&er!=='aborted')toast('🎤 Erreur micro ('+er+')');};
-  rec.onend=()=>{clearTimeout(recTimer);rec=null;micState(false);};
-  try{rec.start();recT0=Date.now();micState(true);recTimer=setTimeout(srStop,7000);}catch(e){rec=null;micState(false);openVoiceBar();}
+function setVoice(on){
+  voiceOn=on;S.voiceOn=on;save();micState(on);
+  if(SRok){if(on)srStart();else{clearTimeout(restartT);srStop();}}
+  else{if(on)openVoiceBar();else closeVoiceBar();}
+  toast(on?'🎤 Commande vocale activée':'🎤 Commande vocale désactivée');
 }
-function srStop(){clearTimeout(recTimer);if(rec){try{rec.stop();}catch(e){}}}
+function srStart(){
+  if(rec||!voiceOn)return;
+  try{rec=new SRC();}catch(e){rec=null;SRok=false;openVoiceBar();return;}
+  rec.lang='fr-FR';rec.continuous=false;rec.interimResults=false;rec.maxAlternatives=5;
+  rec.onresult=e=>{const alts=[];for(let i=0;i<e.results.length;i++)for(let j=0;j<e.results[i].length;j++)alts.push(e.results[i][j].transcript);handleVoice(alts);};
+  rec.onerror=e=>{const er=e&&e.error;
+    if(er==='not-allowed'||er==='service-not-allowed'){SRok=false;rec=null;toast('Reconnaissance vocale indisponible ici : dictée du clavier activée');openVoiceBar();}
+    else if(er&&er!=='no-speech'&&er!=='aborted')toast('🎤 Erreur micro ('+er+')');};
+  rec.onend=()=>{rec=null;if(voiceOn&&SRok){clearTimeout(restartT);restartT=setTimeout(srStart,250);}};
+  try{rec.start();}catch(e){rec=null;if(voiceOn){clearTimeout(restartT);restartT=setTimeout(srStart,800);}}
+}
+function srStop(){if(rec){const r=rec;rec=null;try{r.abort();}catch(e){}}}
 let SRok=!!SRC&&!(navigator.standalone||matchMedia('(display-mode: standalone)').matches&&/iPhone|iPad|Macintosh/.test(navigator.userAgent));
 const mic=$('micBtn');
-mic.addEventListener('pointerdown',e=>{if(!SRok)return;e.preventDefault();if(rec){srStop();return;}srStart();});
-mic.addEventListener('click',()=>{if(SRok)return;if($('voicebar').classList.contains('show'))closeVoiceBar();else openVoiceBar();});
-mic.addEventListener('pointerup',()=>{if(rec&&Date.now()-recT0>450)srStop();});
-mic.addEventListener('pointercancel',()=>{if(rec&&Date.now()-recT0>450)srStop();});
+mic.addEventListener('click',()=>setVoice(!voiceOn));
 mic.addEventListener('contextmenu',e=>e.preventDefault());
+/* Reprise après rechargement : réactivé au premier toucher (iOS exige un geste) */
+if(S.voiceOn){micState(true);voiceOn=true;
+  if(SRok)document.addEventListener('pointerdown',function once(e){document.removeEventListener('pointerdown',once,true);if(voiceOn&&!e.target.closest('#micBtn'))srStart();},true);
+  else setTimeout(()=>openVoiceBar(true),0);}
 /* Mode dictée clavier */
 let vProcessed=0,vTimer=null;
-function openVoiceBar(){
-  const b=$('voicebar');b.classList.add('show');micState(true);
-  const i=$('voiceIn');i.value='';vProcessed=0;i.focus();
+function openVoiceBar(noFocus){
+  const b=$('voicebar');b.classList.add('show');micState(true);voiceOn=true;
+  const i=$('voiceIn');i.value='';vProcessed=0;if(!noFocus)i.focus();
+  fitPhone();
 }
-function closeVoiceBar(){$('voicebar').classList.remove('show');micState(false);$('voiceIn').blur();}
+function closeVoiceBar(){$('voicebar').classList.remove('show');micState(false);$('voiceIn').blur();fitPhone();}
+/* Garde le clavier (et la dictée) ouvert après un toucher ailleurs dans l'app */
+document.addEventListener('click',e=>{
+  if(!voiceOn||SRok||!$('voicebar').classList.contains('show'))return;
+  if(e.target.closest('input,textarea,select,.modal,#voicebar,#micBtn'))return;
+  $('voiceIn').focus();
+},true);
 function voiceFlush(){
   const i=$('voiceIn'),txt=i.value.slice(vProcessed);vProcessed=i.value.length;
   const parts=txt.split(/[.!?\n]+|\b(?:puis|et puis|ensuite)\b/i).map(x=>x.trim()).filter(Boolean);
@@ -1352,23 +1369,23 @@ function voiceFlush(){
 }
 $('voiceIn').addEventListener('input',()=>{clearTimeout(vTimer);vTimer=setTimeout(voiceFlush,900);});
 $('voiceIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(vTimer);voiceFlush();}});
-$('voiceClose').addEventListener('click',closeVoiceBar);
+$('voiceClose').addEventListener('click',()=>setVoice(false));
 $('voiceHelp').addEventListener('click',openVoiceHelp);
 function openVoiceHelp(){
   openDlg('<h4>Commandes vocales</h4>'+
     '<div class="vhelp">'+
-    '<b>7 pour 9</b><span>le 7 entre, le 9 sort (aussi « 7 remplace 9 », « entre 7 sort 9 »)</span>'+
+    '<b>9 pour 7</b><span>le 9 sort, le 7 entre : on nomme toujours le sortant en premier (aussi « 9 par 7 », « 9 remplacé par 7 », « 9 contre 7 », « sort 9 entre 7 »)</span>'+
     '<b>entre 7</b><span>le 7 entre (s\'il reste une place)</span>'+
     '<b>sort 9</b><span>le 9 va sur le banc</span>'+
-    '<b>7</b><span>un numéro seul : le joueur entre s\'il est au banc, sort s\'il est sur le terrain</span>'+
+
     '<b>2 minutes 5</b><span>exclusion du 5 (aussi « exclusion 5 »)</span>'+
     '<b>rouge 5 · bleu 5</b><span>carton rouge / carton bleu</span>'+
-    '<b>pause · reprise</b><span>arrêt / relance du chrono (aussi « temps mort », « top »)</span>'+
+    '<b>pause · reprendre</b><span>arrêt / relance du chrono (aussi « stop », « arrête », « temps mort » / « reprise », « démarrer », « relance », « top »)</span>'+
     '<b>annule</b><span>annule la dernière action</span>'+
     '</div>'+
-    '<p>Les noms de famille marchent aussi (« Dupont pour Martin »). Une commande incohérente avec le match (joueur déjà en jeu, terrain complet…) est ignorée et signalée : rien n\'est modifié par erreur. Chaque action reste annulable.</p>'+
+    '<p>Les noms de famille marchent aussi (« Dupont pour Martin » : Dupont sort, Martin entre). Une commande incohérente avec le match (joueur déjà en jeu, terrain complet…) est ignorée et signalée : rien n\'est modifié par erreur. Chaque action reste annulable.</p>'+
     '<p><b>En tribune :</b> parle près du micro, en commandes courtes. Un kit main-libre ou des écouteurs avec micro (AirPods…) filtrent nettement mieux le bruit de la salle. '+
-    (SRok?'Maintiens le bouton micro pendant que tu parles, relâche pour valider.':'Dans l\'app installée, iOS ne propose pas la reconnaissance vocale aux apps web : touche le micro du clavier (dictée) ; chaque commande est exécutée dès que tu marques une pause. Active la dictée dans Réglages › Général › Clavier si le micro n\'apparaît pas.')+'</p>'+
+    (SRok?'Touche le bouton micro pour activer l\'écoute : elle reste active jusqu\'à ce que tu le touches de nouveau.':'Dans l\'app installée, iOS ne propose pas la reconnaissance vocale aux apps web : touche le micro du clavier (dictée) ; chaque commande est exécutée dès que tu marques une pause. Active la dictée dans Réglages › Général › Clavier si le micro n\'apparaît pas.')+'</p>'+
     '<div class="btns"><button class="btn primary" data-close>OK</button></div>');
 }
 
