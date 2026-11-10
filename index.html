@@ -267,6 +267,13 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 .ckrow small{color:var(--muted);font-size:12px}
 .ckrow.dis{opacity:.55;cursor:default}
 .ckhist{margin-top:10px}
+.lchips,.achips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
+.lchip[aria-pressed=true]{background:var(--blue);color:#fff}
+.lplayers{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;max-height:42vh;overflow:auto;margin-bottom:8px}
+.lplayers .btn{justify-content:flex-start;height:48px;gap:8px}
+.achip{display:inline-flex;align-items:center;gap:6px;padding:6px 6px 6px 10px;border-radius:8px;background:rgba(255,255,255,.08);font-size:13px}
+.achip button{background:none;border:0;color:inherit;font-size:16px;width:32px;height:32px;cursor:pointer}
+.vlearn{margin-left:8px;height:34px;padding:0 10px;font-size:13px}
 .file-btn{display:inline-flex;align-items:center;cursor:pointer}
 .row-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
 
@@ -532,6 +539,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
     <div class="row-actions">
       <button class="btn primary" id="addPlayer">+ Ajouter un joueur</button>
       <button class="btn" id="importBtn">Coller une liste</button>
+      <button class="btn" id="vHelpBtn">Commande vocale · noms appris</button>
       <span style="flex:1"></span>
       <button class="btn danger" id="newMatch">Nouveau match</button>
     </div>
@@ -563,7 +571,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.7.1';
+const APP_VERSION='1.7.2';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -1230,10 +1238,81 @@ const VN=(()=>{const u=['zero','un','deux','trois','quatre','cinq','six','sept',
   return Object.keys(map).sort((a,b)=>b.length-a.length).map(k=>[k,map[k]]);})();
 function vnorm(t){return String(t).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[’'`]/g,' ').replace(/[-–—_]/g,' ').replace(/[.,;:!?«»"()]/g,' ').replace(/\s+/g,' ').trim();}
 function vnums(t){let s=' '+t+' ';VN.forEach(([w,n])=>{s=s.split(' '+w+' ').join(' '+n+' ');});return s.trim().replace(/\s+/g,' ');}
+/* ---------- Reconnaissance des noms ----------
+   La transcription d'un nom propre est souvent fausse (« même » pour MEM, « des blancs » pour DESBLANCS,
+   « coun coud » pour KOUNKOUD). On compare donc la PRONONCIATION (clé phonétique française) des mots
+   entendus, seuls ou par groupes de 2-3 mots collés, à celle des noms de l'effectif, et on remplace le nom
+   reconnu par le numéro du joueur avant d'analyser la commande. Les « noms appris » (alias) sont prioritaires. */
+function vphon(w){
+  let x=vnorm(w).replace(/[^a-z]/g,'');if(!x)return '';
+  x=x.replace(/sch/g,'$').replace(/ch/g,'$').replace(/sh/g,'$').replace(/ph/g,'f').replace(/qu/g,'k').replace(/gu(?=[eiy])/g,'g')
+     .replace(/g(?=[eiy])/g,'j').replace(/c(?=[eiy])/g,'s').replace(/ck/g,'k').replace(/[cq]/g,'k').replace(/x/g,'ks')
+     .replace(/w/g,'v').replace(/y/g,'i').replace(/z/g,'s').replace(/h/g,'');
+  x=x.replace(/(.)\1+/g,'$1');
+  x=x.replace(/eau|au/g,'o').replace(/ou/g,'u').replace(/oi/g,'wa').replace(/(ai|ei)(?=n|m)/g,'E');
+  x=x.replace(/(er|ez|et)$/,'e').replace(/[tdsxpg]+$/,'');
+  x=x.replace(/[iE][nm](?=[^aeiouy]|$)/g,'1').replace(/E/g,'e').replace(/un(?=[^aeiouy]|$)/g,'1').replace(/a[nm](?=[^aeiouy]|$)/g,'2').replace(/e[nm](?=[^aeiouy])/g,'2').replace(/o[nm](?=[^aeiouy]|$)/g,'3');
+  x=x.replace(/ai|ei|e(?=$)/g,m=>m==='e'?'':'e');
+  x=x.replace(/[tdsxpg]+$/,'').replace(/(.)\1+/g,'$1');
+  return x;
+}
+function vlev(a,b){const d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]===b[j-1]?0:1));p=t;}}return d[b.length];}
+const VKW=new Set(('pour par contre sur remplace remplacee a la place de entre entree rentre sort sortie sors in out dehors minute minutes min mn '+
+  'exclusion exclu exclue carton rouge bleu disqualification disqualifie pause stop stoppe stopper arret arrete arreter arretez temps mort '+
+  'reprise reprendre reprend reprends reprenez reprenons go top demarre demarrer demarrez demarrage relance relancer lance lancer c est parti start '+
+  'annule annuler oups retour on le les l et puis numero joueur ok alors').split(' '));
+let vIdx=null,vIdxKey='';
+function vindex(){
+  const R0=S.roster,key=R0.map(p=>p.id+'|'+p.name+'|'+(p.alias||[]).join(',')).join(';');
+  if(key===vIdxKey&&vIdx)return vIdx;
+  vIdx=[];R0.forEach(p=>{
+    (p.alias||[]).forEach(a=>{const n=vnorm(a);if(n)vIdx.push({p,alias:n.replace(/ /g,'')});});
+    const n=vnorm(p.name);if(!n)return;
+    const words=n.split(' ').filter(w=>w.length>=2);
+    /* nom complet et chaque mot du nom (nom de famille, prénom) */
+    const forms=new Set([n.replace(/ /g,'')].concat(words.length>1?words.filter(w=>w.length>=3):[]));
+    forms.forEach(f=>{const k=vphon(f);if(k)vIdx.push({p,k,raw:f});});
+  });
+  vIdxKey=key;return vIdx;
+}
+/* Meilleur joueur pour un groupe de mots collés ; null si aucun ou si deux joueurs sont aussi proches. */
+function vmatchName(joined){
+  if(!joined||joined.length<2)return null;
+  const idx=vindex();
+  const al=idx.find(e=>e.alias&&e.alias===joined);if(al)return al.p;
+  const k=vphon(joined);if(!k)return null;
+  let best=null,bd=99,second=99;
+  idx.forEach(e=>{if(!e.k)return;
+    let d=vlev(k,e.k);if(joined===e.raw)d=-1;
+    const tol=e.k.length>=7?2:e.k.length>=3?1:0;
+    if(d>tol)return;
+    if(d<bd){if(best&&best.p!==e.p)second=bd;bd=d;best=e;}else if(e.p!==best.p&&d<second)second=d;});
+  if(!best||second<=bd)return null;
+  return best.p;
+}
+/* Remplace dans une liste de mots les noms reconnus par le numéro du joueur. */
+function vnamesToks(toks){
+  const free=x=>x&&!/\d/.test(x)&&!/^K[A-Z0-9]+$/.test(x)&&!VKW.has(x);
+  const out=[];
+  for(let i=0;i<toks.length;){
+    let done=false;
+    if(free(toks[i])){
+      for(let n=3;n>=1&&!done;n--){
+        const w=toks.slice(i,i+n);if(w.length<n||!w.every(free))continue;
+        const p=vmatchName(w.join(''));
+        if(p&&String(p.num)){out.push(String(p.num));i+=n;done=true;}
+      }
+    }
+    if(!done){out.push(toks[i]);i++;}
+  }
+  return out;
+}
+function vnames(t){return vnamesToks(t.split(' ').filter(Boolean)).join(' ');}
 function vplayer(tok){
   const R0=S.roster;
   if(/^\d+$/.test(tok))return R0.find(p=>String(p.num)===String(+tok))||R0.find(p=>String(p.num)===tok)||null;
   if(tok.length<3)return null;
+  {const p=vmatchName(tok);if(p)return p;}
   const lev=(a,b)=>{const d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]===b[j-1]?0:1));p=t;}}return d[b.length];};
   let best=null,bd=9;
   R0.forEach(p=>vnorm(p.name).split(' ').forEach(w=>{if(w.length<3)return;const d=lev(tok,w),lim=w.length>5?1:0;if(d<=lim&&d<bd){bd=d;best=p;}}));
@@ -1248,7 +1327,8 @@ const VKEY=[
   ['2min',/\b(2 minutes?|deux minutes?|2 min|deux min|2mn|exclusion|exclu|exclue)\b/]
 ];
 function vparse(raw){
-  const t0=vnorm(raw);if(!t0)return {err:'rien entendu'};
+  let t0=vnorm(raw);if(!t0)return {err:'rien entendu'};
+  t0=vnames(vnums(t0));
   for(const [k,re] of VKEY){
     if(!re.test(t0))continue;
     if(k==='undo'||k==='pause'||k==='start')return {type:k,txt:raw};
@@ -1329,7 +1409,7 @@ function vsegment(text){
   K(/\b(annuler|annule|oups|retour)\b/g,'KUNDO');
   K(/\b(remplacee par|remplace par|a la place de|place de|remplace|pour|par|contre|sur)\b/g,'KFOR');
   K(/\b(entree|entre|rentre|in)\b/g,'KIN');K(/\b(sortie|sort|sors|out|dehors)\b/g,'KOUT');
-  t=vnums(t.replace(/\s+/g,' ').trim());
+  t=vnames(vnums(t.replace(/\s+/g,' ').trim()));
   const nums=new Set(S.roster.map(p=>String(p.num)));
   let toks=[];
   t.split(' ').filter(Boolean).forEach(x=>{
@@ -1370,17 +1450,50 @@ function handleVoice1(alts){
     if(view!=='match')showView('match');
     vexec(c);voiceFeedback(v.label,null,a);return;
   }
-  voiceFeedback(null,'« '+firstErr[0].trim()+' » : '+firstErr[1]);
+  voiceFeedback(null,'« '+firstErr[0].trim()+' » : '+firstErr[1],null,alts);
 }
-function voiceFeedback(ok,err,heard){
+/* Mots entendus qui pourraient être un nom mal transcrit (hors mots de commande et numéros) */
+function vcandidates(alts){
+  const seen=new Set(),out=[];
+  alts.slice(0,3).forEach(a=>{
+    const toks=vnamesToks(vnums(vnorm(a)).split(' ').filter(Boolean));let run=[];
+    const flush=()=>{for(let n=Math.min(3,run.length);n>=1;n--)for(let i=0;i+n<=run.length;i++){const ph=run.slice(i,i+n).join(' ');if(ph.length>=2&&!seen.has(ph)){seen.add(ph);out.push(ph);}}run=[];};
+    toks.forEach(x=>{if(/\d/.test(x)||VKW.has(x))flush();else run.push(x);});flush();
+  });
+  return out.slice(0,8);
+}
+function openLearn(alts){
+  const cands=vcandidates(alts);
+  if(!cands.length){toast('Aucun mot à associer dans cette phrase');return;}
+  let phrase=cands[0];
+  const R0=[...S.roster].sort((a,b)=>(+a.num||0)-(+b.num||0));
+  openDlg('<h4>Apprendre un nom</h4><p>Entendu : « '+esc(alts[0])+' ». Touche le mot qui désignait le joueur, puis le joueur.</p>'+
+    '<div class="lchips">'+cands.map((c,i)=>'<button class="btn lchip" data-c="'+i+'" aria-pressed="'+(i===0)+'">'+esc(c)+'</button>').join('')+'</div>'+
+    '<div class="lplayers">'+R0.map(p=>'<button class="btn" data-p="'+p.id+'"><b>'+esc(p.num)+'</b> '+esc(p.name)+'</button>').join('')+'</div>'+
+    '<div class="btns"><button class="btn" data-close>Annuler</button></div>');
+  $('dialog').classList.add('wide');
+  $('dialog').querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{phrase=cands[+b.dataset.c];
+    $('dialog').querySelectorAll('[data-c]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));});
+  $('dialog').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{
+    const p=S.roster.find(x=>x.id===b.dataset.p);if(!p)return;
+    const a=phrase.replace(/ /g,'');
+    S.roster.forEach(q=>{if(q.alias)q.alias=q.alias.filter(x=>vnorm(x).replace(/ /g,'')!==a);});
+    p.alias=(p.alias||[]).concat([phrase]).slice(-8);save();closeDlg();
+    toast('« '+phrase+' » = #'+p.num+' '+p.name);
+    handleVoice1(alts);
+  });
+}
+function voiceFeedback(ok,err,heard,alts){
   const el=$('voiceLast'),barOpen=$('voicebar').classList.contains('show');
   if(ok){
     if(!barOpen)toast('🎤 '+ok,'Annuler',()=>doUndo());
     el.className='vlast';el.innerHTML='<b>'+esc(ok)+'</b>'+(heard?' · entendu « '+esc(heard.trim())+' »':'')+' <button class="btn vundo" type="button">Annuler</button>';
     const u=el.querySelector('.vundo');if(u)u.onclick=()=>{doUndo();el.className='vlast';el.innerHTML='Dernière action annulée.';$('voiceIn').focus();};
   }else{
-    if(!barOpen)toast('🎤 '+err);
-    el.className='vlast err';el.innerHTML='<b>Pas exécuté</b> · '+esc(err);
+    const learn=alts&&vcandidates(alts).length;
+    if(!barOpen){if(learn)toast('🎤 '+err,'Apprendre',()=>openLearn(alts));else toast('🎤 '+err);}
+    el.className='vlast err';el.innerHTML='<b>Pas exécuté</b> · '+esc(err)+(learn?' <button class="btn vlearn" type="button">Apprendre ce nom</button>':'');
+    const l=el.querySelector('.vlearn');if(l)l.onclick=()=>openLearn(alts);
   }
 }
 const SRC=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -1412,7 +1525,7 @@ const NSP=NATIVE?(CAP.Plugins&&CAP.Plugins.TdjSpeech)||(CAP.registerPlugin&&CAP.
 let nListening=false,nPermOk=false,nRetry=null;
 function nContext(){
   const w=['pour','entre','sort','remplacé par','2 minutes','deux minutes','exclusion','carton rouge','carton bleu','rouge','bleu','pause','temps mort','reprendre','reprise','annule'];
-  const names=[];(S.roster||[]).forEach(p=>{if(p&&p.name){const n=String(p.name).trim();if(n)names.push(n);const last=n.split(/\s+/).pop();if(last&&last!==n)names.push(last);}});
+  const names=[];(S.roster||[]).forEach(p=>{if(p&&p.name){const n=String(p.name).trim().toLowerCase().replace(/(^|[\s-])\S/g,c=>c.toUpperCase());if(n)names.push(n);const last=n.split(/\s+/).pop();if(last&&last!==n)names.push(last);}});
   return [...new Set(names.concat(w))].slice(0,100);
 }
 async function nStart(){
@@ -1483,6 +1596,7 @@ $('voiceIn').addEventListener('input',()=>{clearTimeout(vTimer);clearTimeout(vCl
 $('voiceIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(vTimer);voiceFlush();}});
 $('voiceClose').addEventListener('click',()=>setVoice(false));
 $('voiceHelp').addEventListener('click',openVoiceHelp);
+$('vHelpBtn').addEventListener('click',openVoiceHelp);
 function openVoiceHelp(){
   openDlg('<h4>Commandes vocales</h4>'+
     '<div class="vhelp">'+
@@ -1498,8 +1612,17 @@ function openVoiceHelp(){
     '<p>Les noms de famille marchent aussi (« Dupont pour Martin » : Dupont sort, Martin entre). Une commande incohérente avec le match (joueur déjà en jeu, terrain complet…) est ignorée et signalée : rien n\'est modifié par erreur. Chaque action reste annulable.</p>'+
     '<p><b>En tribune :</b> parle près du micro, en commandes courtes. Un kit main-libre ou des écouteurs avec micro (AirPods…) filtrent nettement mieux le bruit de la salle. '+
     (NATIVE?'Touche le bouton micro pour activer l\'écoute : elle reste active jusqu\'à ce que tu le touches de nouveau, écran allumé. Le micro du casque Bluetooth est utilisé automatiquement s\'il est connecté ; chaque commande est exécutée dès que tu marques une courte pause.':SRok?'Touche le bouton micro pour activer l\'écoute : elle reste active jusqu\'à ce que tu le touches de nouveau.':'Dans l\'app installée, iOS ne propose pas la reconnaissance vocale aux apps web : touche le micro du clavier (dictée) ; chaque commande est exécutée dès que tu marques une pause. Active la dictée dans Réglages › Général › Clavier si le micro n\'apparaît pas.')+'</p>'+
+    vAliasHtml()+
     '<div class="btns"><button class="btn primary" data-close>OK</button></div>');
+  vAliasBind();
 }
+function vAliasHtml(){
+  const L=[];S.roster.forEach(p=>(p.alias||[]).forEach((a,i)=>L.push('<span class="achip">« '+esc(a)+' » → #'+esc(p.num)+' '+esc(p.name)+' <button type="button" aria-label="Oublier" data-ap="'+p.id+'" data-ai="'+i+'">✕</button></span>')));
+  return '<p><b>Noms appris</b> : si un nom est mal compris, touche « Apprendre » après la commande ratée pour l\'associer au joueur.</p>'+
+    (L.length?'<div class="achips" id="achips">'+L.join('')+'</div>':'<p class="hint-p">Aucun pour cette équipe.</p>');
+}
+function vAliasBind(){const box=$('achips');if(!box)return;box.onclick=e=>{const b=e.target.closest('[data-ap]');if(!b)return;
+  const p=S.roster.find(x=>x.id===b.dataset.ap);if(!p||!p.alias)return;p.alias.splice(+b.dataset.ai,1);if(!p.alias.length)delete p.alias;save();openVoiceHelp();};}
 
 /* ---------- Fin de match ---------- */
 function savedBox(rec,title){
@@ -1633,7 +1756,7 @@ function nameDlg(title,value,okLabel,fn){
   const ok=()=>{const v=inp.value.trim();if(!v){toast('Donne un nom à l\'équipe');return;}closeDlg();fn(v);};
   $('nameOk').onclick=ok;inp.addEventListener('keydown',e=>{if(e.key==='Enter')ok();});
 }
-function cloneRoster(r){return r.map(p=>({id:'p'+(++S.seq),num:p.num,name:p.name,pos:p.pos}));}
+function cloneRoster(r){return r.map(p=>{const o={id:'p'+(++S.seq),num:p.num,name:p.name,pos:p.pos};if(p.alias&&p.alias.length)o.alias=p.alias.slice();return o;});}
 function renderRoster(){
   const m=S.m;
   renderTeams();
@@ -1692,7 +1815,7 @@ $('importBtn').onclick=()=>{
 };
 
 /* ---------- Export / import des effectifs et de l'historique ---------- */
-function teamOut(t){const o={name:t.name,periodMin:t.periodMin,otMin:t.otMin,maxOn:t.maxOn,roster:t.roster.map(p=>({num:p.num,name:p.name,pos:p.pos}))};if(t.dest)o.dest=t.dest;return o;}
+function teamOut(t){const o={name:t.name,periodMin:t.periodMin,otMin:t.otMin,maxOn:t.maxOn,roster:t.roster.map(p=>{const o={num:p.num,name:p.name,pos:p.pos};if(p.alias&&p.alias.length)o.alias=p.alias.slice();return o;})};if(t.dest)o.dest=t.dest;return o;}
 function slug(x){return String(x).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'').toLowerCase()||'equipe';}
 function today(){return new Date().toISOString().slice(0,10);}
 function checkList(items){/* items: [{key,label,sub,checked,disabled}] */
@@ -1754,7 +1877,8 @@ function openImport(d){
     let added=0,updated=0,hAdded=0;
     teams.forEach((t,i)=>{
       if(!pickT.has(i))return;
-      const roster=t.roster.map(p=>({id:'p'+(++S.seq),num:String(p.num||''),name:String(p.name||''),pos:POS.includes(p.pos)?p.pos:'DC'}));
+      const roster=t.roster.map(p=>{const o={id:'p'+(++S.seq),num:String(p.num||''),name:String(p.name||''),pos:POS.includes(p.pos)?p.pos:'DC'};
+        if(Array.isArray(p.alias))o.alias=p.alias.map(String).filter(Boolean).slice(0,8);return o;});
       const ex=S.teams.find(x=>x.name===t.name);
       if(ex){if(ex.id===S.teamId)return;
         ex.roster=roster;ex.periodMin=t.periodMin||30;ex.otMin=t.otMin||5;ex.maxOn=t.maxOn||7;if(t.dest)ex.dest=t.dest;ex.example=false;updated++;}
@@ -1835,7 +1959,7 @@ document.addEventListener('visibilitychange',()=>{commit();save();if(!document.h
 window.addEventListener('pagehide',()=>{commit();save();});
 
 commit();renderAll();
-window.__tdj={seg:t=>vsegment(t),S:()=>S,buildReport:()=>buildReport(),voice:a=>handleVoice(a),vparse:t=>vparse(t)};
+window.__tdj={ph:t=>vphon(t),seg:t=>vsegment(t),S:()=>S,buildReport:()=>buildReport(),voice:a=>handleVoice(a),vparse:t=>vparse(t)};
 if(!NATIVE&&'serviceWorker' in navigator&&!/claude/.test(location.hostname)&&(location.protocol==='https:'||location.hostname==='localhost')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;
