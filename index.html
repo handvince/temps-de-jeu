@@ -571,7 +571,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.7.2';
+const APP_VERSION='1.7.3';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -1260,7 +1260,7 @@ function vlev(a,b){const d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length
 const VKW=new Set(('pour par contre sur remplace remplacee a la place de entre entree rentre sort sortie sors in out dehors minute minutes min mn '+
   'exclusion exclu exclue carton rouge bleu disqualification disqualifie pause stop stoppe stopper arret arrete arreter arretez temps mort '+
   'reprise reprendre reprend reprends reprenez reprenons go top demarre demarrer demarrez demarrage relance relancer lance lancer c est parti start '+
-  'annule annuler oups retour on le les l et puis numero joueur ok alors').split(' '));
+  'annule annuler annulation correction corrige corriger oups retour on le les l et puis numero joueur ok alors').split(' '));
 let vIdx=null,vIdxKey='';
 function vindex(){
   const R0=S.roster,key=R0.map(p=>p.id+'|'+p.name+'|'+(p.alias||[]).join(',')).join(';');
@@ -1319,7 +1319,7 @@ function vplayer(tok){
   return best;
 }
 const VKEY=[
-  ['undo',/\b(annule|annuler|oups|retour)\b/],
+  ['undo',/\b(annule|annuler|annulation|correction|corrige|corriger|oups|retour)\b/],
   ['pause',/\b(pause|stop|stoppe|stopper|arret|arrete|arreter|arretez|temps mort)\b/],
   ['start',/\b(reprise|reprendre|reprend|reprends|reprenez|reprenons|go|top|demarre|demarrer|demarrez|demarrage|relance|relancer|lance|lancer|c est parti|start)\b/],
   ['blue',/\b(carton bleu|bleu)\b/],
@@ -1406,7 +1406,7 @@ function vsegment(text){
   K(/\b(carton rouge|rouge|disqualification|disqualifie)\b/g,'KRED');K(/\b(carton bleu|bleu)\b/g,'KBLUE');
   K(/\b(temps mort|pause|stoppe|stopper|stop|arretez|arreter|arrete|arret)\b/g,'KPAUSE');
   K(/\b(on reprend|reprendre|reprenez|reprenons|reprends|reprend|reprise|c est parti|demarrage|demarrez|demarrer|demarre|relancer|relance|lancer|lance|start|top|go)\b/g,'KSTART');
-  K(/\b(annuler|annule|oups|retour)\b/g,'KUNDO');
+  K(/\b(annulation|annuler|annule|correction|corriger|corrige|oups|retour)\b/g,'KUNDO');
   K(/\b(remplacee par|remplace par|a la place de|place de|remplace|pour|par|contre|sur)\b/g,'KFOR');
   K(/\b(entree|entre|rentre|in)\b/g,'KIN');K(/\b(sortie|sort|sors|out|dehors)\b/g,'KOUT');
   t=vnames(vnums(t.replace(/\s+/g,' ').trim()));
@@ -1524,7 +1524,7 @@ const CAP=window.Capacitor,NATIVE=!!(CAP&&CAP.isNativePlatform&&CAP.isNativePlat
 const NSP=NATIVE?(CAP.Plugins&&CAP.Plugins.TdjSpeech)||(CAP.registerPlugin&&CAP.registerPlugin('TdjSpeech')):null;
 let nListening=false,nPermOk=false,nRetry=null;
 function nContext(){
-  const w=['pour','entre','sort','remplacé par','2 minutes','deux minutes','exclusion','carton rouge','carton bleu','rouge','bleu','pause','temps mort','reprendre','reprise','annule'];
+  const w=['correction','entre','sort','remplacé par','2 minutes','deux minutes','exclusion','carton rouge','carton bleu','rouge','bleu','pause','temps mort','reprendre','reprise','annule'];
   const names=[];(S.roster||[]).forEach(p=>{if(p&&p.name){const n=String(p.name).trim().toLowerCase().replace(/(^|[\s-])\S/g,c=>c.toUpperCase());if(n)names.push(n);const last=n.split(/\s+/).pop();if(last&&last!==n)names.push(last);}});
   return [...new Set(names.concat(w))].slice(0,100);
 }
@@ -1607,7 +1607,7 @@ function openVoiceHelp(){
     '<b>2 minutes 5</b><span>exclusion du 5 (aussi « exclusion 5 »)</span>'+
     '<b>rouge 5 · bleu 5</b><span>carton rouge / carton bleu</span>'+
     '<b>pause · reprendre</b><span>arrêt / relance du chrono (aussi « stop », « arrête », « temps mort » / « reprise », « démarrer », « relance », « top »)</span>'+
-    '<b>annule</b><span>annule la dernière action</span>'+
+    '<b>correction · annule</b><span>annule la dernière action (aussi « corrige », « annuler », « oups »)</span>'+
     '</div>'+
     '<p>Les noms de famille marchent aussi (« Dupont pour Martin » : Dupont sort, Martin entre). Une commande incohérente avec le match (joueur déjà en jeu, terrain complet…) est ignorée et signalée : rien n\'est modifié par erreur. Chaque action reste annulable.</p>'+
     '<p><b>En tribune :</b> parle près du micro, en commandes courtes. Un kit main-libre ou des écouteurs avec micro (AirPods…) filtrent nettement mieux le bruit de la salle. '+
