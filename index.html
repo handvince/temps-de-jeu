@@ -260,6 +260,13 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 .rrow input.n{font-family:var(--display);font-size:22px;text-align:center}
 .rrow .del{width:48px;height:48px;border-radius:10px;border:1px solid var(--line);background:var(--navy);color:var(--red);font-size:20px}
 .hint-p{color:var(--muted);font-size:13px;margin:0 0 10px}
+.cklist{max-height:46vh;overflow:auto;display:grid;gap:6px;margin:8px 0 4px}
+.ckrow{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.06);cursor:pointer}
+.ckrow input{width:22px;height:22px;flex:none;accent-color:var(--blue)}
+.ckrow span{display:flex;flex-direction:column;min-width:0}
+.ckrow small{color:var(--muted);font-size:12px}
+.ckrow.dis{opacity:.55;cursor:default}
+.ckhist{margin-top:10px}
 .file-btn{display:inline-flex;align-items:center;cursor:pointer}
 .row-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
 
@@ -529,10 +536,11 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
       <button class="btn danger" id="newMatch">Nouveau match</button>
     </div>
     <h3 class="sec">Sauvegarde</h3>
-    <p class="hint-p">Les équipes sont enregistrées sur cet appareil. Sauvegarde-les avec l'historique des matchs dans un fichier pour les retrouver sur un autre iPad ou les transmettre à un collègue.</p>
+    <p class="hint-p">Les équipes et les matchs sont enregistrés sur cet appareil. Exporte-les dans un fichier pour les retrouver sur un autre iPad ou iPhone, ou les transmettre à un collègue.</p>
     <div class="row-actions">
-      <button class="btn blue" id="backupBtn">Sauvegarder équipes et historique</button>
-      <label class="btn file-btn" for="restoreIn">Restaurer depuis un fichier</label>
+      <button class="btn blue" id="teamsExpBtn">Exporter des effectifs</button>
+      <button class="btn" id="backupBtn">Sauvegarde complète (équipes + matchs)</button>
+      <label class="btn file-btn" for="restoreIn">Importer un fichier</label>
       <input type="file" id="restoreIn" accept=".json,application/json" hidden>
     </div>
     <p class="hint-p" id="verInfo"></p>
@@ -555,7 +563,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.6.2';
+const APP_VERSION='1.7.1';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -1017,8 +1025,21 @@ function fmtOff(ms){const t=Math.round(ms/1000),h=Math.floor(t/3600),mn=Math.flo
 /* Sur iPad : feuille de partage (Enregistrer dans Fichiers, AirDrop, Mail…) ; ailleurs : téléchargement. */
 let downloads=null;
 try{if(window.claude&&window.claude.use){window.claude.use('downloads').then(d=>{downloads=d;}).catch(()=>{});}}catch(e){}
+function blobToB64(blob){return new Promise((ok,ko)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]||'');r.onerror=ko;r.readAsDataURL(blob);});}
+async function nativeShare(filename,blob,title){
+  const FS=CAP.Plugins.Filesystem,SH=CAP.Plugins.Share;
+  const safe=filename.replace(/[\\/:*?"<>|]/g,'-');
+  const w=await FS.writeFile({path:safe,data:await blobToB64(blob),directory:'CACHE'});
+  try{await SH.share({title:safe,files:[w.uri],dialogTitle:title});toast('Fichier partagé');}
+  catch(e){const m=String((e&&e.message)||e);if(!/cancel|annul/i.test(m))throw e;}
+}
 function offerFile(filename,data,title,mime){
   mime=mime||'text/csv';
+  if(NATIVE&&CAP.Plugins.Filesystem&&CAP.Plugins.Share){
+    const blob=data instanceof Blob?data:new Blob([data],{type:mime});
+    nativeShare(filename,blob,title).catch(()=>showTextDlg(title,typeof data==='string'?data:'Partage impossible.','Copie le contenu et colle-le dans un fichier texte.'));
+    return;
+  }
   if(downloads){
     downloads.save({filename,data}).then(()=>toast('Fichier enregistré')).catch(err=>{
       if(err&&err.code==='declined')return;showTextDlg(title,data,'Copie le contenu et colle-le dans un fichier texte.');});
@@ -1368,7 +1389,8 @@ let rec=null,voiceOn=false,restartT=null;
 function micState(on){$('micBtn').setAttribute('aria-pressed',String(on));}
 function setVoice(on){
   voiceOn=on;S.voiceOn=on;save();micState(on);
-  if(SRok){if(on)srStart();else{clearTimeout(restartT);srStop();}}
+  if(NATIVE){if(on)nStart();else nStop();}
+  else if(SRok){if(on)srStart();else{clearTimeout(restartT);srStop();}}
   else{if(on)openVoiceBar();else closeVoiceBar();}
   toast(on?'🎤 Commande vocale activée':'🎤 Commande vocale désactivée');
 }
@@ -1384,13 +1406,54 @@ function srStart(){
   try{rec.start();}catch(e){rec=null;if(voiceOn){clearTimeout(restartT);restartT=setTimeout(srStart,800);}}
 }
 function srStop(){if(rec){const r=rec;rec=null;try{r.abort();}catch(e){}}}
-let SRok=!!SRC&&!(navigator.standalone||matchMedia('(display-mode: standalone)').matches&&/iPhone|iPad|Macintosh/.test(navigator.userAgent));
+/* ---------- App iOS (Capacitor) : reconnaissance vocale native en continu ---------- */
+const CAP=window.Capacitor,NATIVE=!!(CAP&&CAP.isNativePlatform&&CAP.isNativePlatform());
+const NSP=NATIVE?(CAP.Plugins&&CAP.Plugins.TdjSpeech)||(CAP.registerPlugin&&CAP.registerPlugin('TdjSpeech')):null;
+let nListening=false,nPermOk=false,nRetry=null;
+function nContext(){
+  const w=['pour','entre','sort','remplacé par','2 minutes','deux minutes','exclusion','carton rouge','carton bleu','rouge','bleu','pause','temps mort','reprendre','reprise','annule'];
+  const names=[];(S.roster||[]).forEach(p=>{if(p&&p.name){const n=String(p.name).trim();if(n)names.push(n);const last=n.split(/\s+/).pop();if(last&&last!==n)names.push(last);}});
+  return [...new Set(names.concat(w))].slice(0,100);
+}
+async function nStart(){
+  if(!NSP){toast('Module vocal absent de cette version');return;}
+  clearTimeout(nRetry);
+  try{
+    if(!nPermOk){const r=await NSP.askPermissions();
+      if(!r||!r.speech||!r.microphone){voiceOn=false;S.voiceOn=false;save();micState(false);
+        openDlg('<h4>Micro non autorisé</h4><p>Autorise le micro et la reconnaissance vocale pour « Temps de jeu » dans Réglages › Confidentialité et sécurité (rubriques Microphone et Reconnaissance vocale).</p><div class="btns"><button class="btn primary" data-close>OK</button></div>');return;}
+      nPermOk=true;}
+    if(!voiceOn)return;
+    const r=await NSP.start({language:'fr-FR',contextualStrings:nContext(),silenceDelay:0.8,onDevice:true});
+    nListening=!!(r&&r.listening);
+    if(r&&r.route)$('micBtn').title='Micro : '+r.route;
+  }catch(e){nListening=false;toast('🎤 '+((e&&e.message)||'Micro indisponible'));if(voiceOn)nRetry=setTimeout(nStart,2000);}
+  nAwake();
+}
+function nStop(){clearTimeout(nRetry);nListening=false;if(NSP)NSP.stop().catch(()=>{});nAwake();}
+let nAwakeOn=null;
+function nAwake(){if(!NSP)return;const want=!!(voiceOn||(S.m&&S.m.running));if(want===nAwakeOn)return;nAwakeOn=want;NSP.setKeepAwake({enabled:want}).catch(()=>{});}
+if(NATIVE&&NSP){
+  NSP.addListener('utterance',e=>{if(voiceOn)handleVoice((e&&e.matches)||[]);});
+  NSP.addListener('state',e=>{nListening=!!(e&&e.listening);
+    if(!nListening&&voiceOn&&!document.hidden){clearTimeout(nRetry);nRetry=setTimeout(nStart,600);}});
+  NSP.addListener('route',e=>{
+    if(e&&e.route)toast('🎤 Micro : '+e.route+(e.bluetooth?' (casque)':''));
+    if(e&&e.restart&&voiceOn){clearTimeout(nRetry);nRetry=setTimeout(nStart,500);}});
+  NSP.addListener('error',e=>{if(e&&e.message)toast('🎤 '+e.message);});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&voiceOn&&!nListening){clearTimeout(nRetry);nRetry=setTimeout(nStart,400);}});
+  setInterval(nAwake,3000);
+  try{const SB=CAP.Plugins.StatusBar;if(SB){SB.setStyle({style:'DARK'}).catch(()=>{});SB.setBackgroundColor&&SB.setBackgroundColor({color:'#0a1350'}).catch(()=>{});}}catch(e){}
+  document.documentElement.classList.add('native');
+}
+let SRok=!NATIVE&&!!SRC&&!(navigator.standalone||matchMedia('(display-mode: standalone)').matches&&/iPhone|iPad|Macintosh/.test(navigator.userAgent));
 const mic=$('micBtn');
 mic.addEventListener('click',()=>setVoice(!voiceOn));
 mic.addEventListener('contextmenu',e=>e.preventDefault());
 /* Reprise après rechargement : réactivé au premier toucher (iOS exige un geste) */
 if(S.voiceOn){micState(true);voiceOn=true;
-  if(SRok)document.addEventListener('pointerdown',function once(e){document.removeEventListener('pointerdown',once,true);if(voiceOn&&!e.target.closest('#micBtn'))srStart();},true);
+  if(NATIVE)setTimeout(nStart,300);
+  else if(SRok)document.addEventListener('pointerdown',function once(e){document.removeEventListener('pointerdown',once,true);if(voiceOn&&!e.target.closest('#micBtn'))srStart();},true);
   else setTimeout(()=>openVoiceBar(true),0);}
 /* Mode dictée clavier */
 let vProcessed=0,vTimer=null;
@@ -1434,7 +1497,7 @@ function openVoiceHelp(){
     '</div>'+
     '<p>Les noms de famille marchent aussi (« Dupont pour Martin » : Dupont sort, Martin entre). Une commande incohérente avec le match (joueur déjà en jeu, terrain complet…) est ignorée et signalée : rien n\'est modifié par erreur. Chaque action reste annulable.</p>'+
     '<p><b>En tribune :</b> parle près du micro, en commandes courtes. Un kit main-libre ou des écouteurs avec micro (AirPods…) filtrent nettement mieux le bruit de la salle. '+
-    (SRok?'Touche le bouton micro pour activer l\'écoute : elle reste active jusqu\'à ce que tu le touches de nouveau.':'Dans l\'app installée, iOS ne propose pas la reconnaissance vocale aux apps web : touche le micro du clavier (dictée) ; chaque commande est exécutée dès que tu marques une pause. Active la dictée dans Réglages › Général › Clavier si le micro n\'apparaît pas.')+'</p>'+
+    (NATIVE?'Touche le bouton micro pour activer l\'écoute : elle reste active jusqu\'à ce que tu le touches de nouveau, écran allumé. Le micro du casque Bluetooth est utilisé automatiquement s\'il est connecté ; chaque commande est exécutée dès que tu marques une courte pause.':SRok?'Touche le bouton micro pour activer l\'écoute : elle reste active jusqu\'à ce que tu le touches de nouveau.':'Dans l\'app installée, iOS ne propose pas la reconnaissance vocale aux apps web : touche le micro du clavier (dictée) ; chaque commande est exécutée dès que tu marques une pause. Active la dictée dans Réglages › Général › Clavier si le micro n\'apparaît pas.')+'</p>'+
     '<div class="btns"><button class="btn primary" data-close>OK</button></div>');
 }
 
@@ -1628,38 +1691,84 @@ $('importBtn').onclick=()=>{
   };
 };
 
-/* ---------- Sauvegarde des équipes ---------- */
+/* ---------- Export / import des effectifs et de l'historique ---------- */
+function teamOut(t){const o={name:t.name,periodMin:t.periodMin,otMin:t.otMin,maxOn:t.maxOn,roster:t.roster.map(p=>({num:p.num,name:p.name,pos:p.pos}))};if(t.dest)o.dest=t.dest;return o;}
+function slug(x){return String(x).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'').toLowerCase()||'equipe';}
+function today(){return new Date().toISOString().slice(0,10);}
+function checkList(items){/* items: [{key,label,sub,checked,disabled}] */
+  return '<div class="cklist">'+items.map(it=>'<label class="ckrow'+(it.disabled?' dis':'')+'"><input type="checkbox" data-k="'+esc(it.key)+'"'+(it.checked?' checked':'')+(it.disabled?' disabled':'')+'><span><b>'+esc(it.label)+'</b>'+(it.sub?'<small>'+esc(it.sub)+'</small>':'')+'</span></label>').join('')+'</div>';
+}
+function ckAll(){const box=$('dialog');const cs=[...box.querySelectorAll('.cklist input:not(:disabled)')];const all=cs.every(c=>c.checked);cs.forEach(c=>c.checked=!all);box.dispatchEvent(new Event('change'));}
+$('teamsExpBtn').onclick=()=>{
+  save();
+  const L=[...S.teams].sort((a,b)=>a.name.localeCompare(b.name,'fr',{numeric:true}));
+  openDlg('<h4>Exporter des effectifs</h4><p>Coche les équipes à exporter (sans les matchs). Le fichier s\'importe ensuite avec « Importer un fichier », sur cet appareil ou un autre.</p>'+
+    checkList(L.map(t=>({key:t.id,label:t.name,sub:t.roster.length+' joueur'+(t.roster.length>1?'s':''),checked:true})))+
+    '<div class="dlg-actions"><button class="btn" id="ckAll">Tout cocher / décocher</button><span style="flex:1"></span><button class="btn" data-close>Annuler</button><button class="btn primary" id="expGo">Exporter</button></div>');
+  $('dialog').classList.add('wide');
+  const upd=()=>{const n=$('dialog').querySelectorAll('.cklist input:checked').length;$('expGo').disabled=!n;$('expGo').textContent=n?'Exporter ('+n+')':'Exporter';};
+  $('dialog').addEventListener('change',upd);upd();
+  $('ckAll').onclick=()=>{ckAll();upd();};
+  $('expGo').onclick=()=>{
+    const ids=new Set([...$('dialog').querySelectorAll('.cklist input:checked')].map(c=>c.dataset.k));
+    const teams=S.teams.filter(t=>ids.has(t.id));closeDlg();
+    const data=JSON.stringify({app:'temps-de-jeu-handball',v:1,kind:'teams',date:new Date().toISOString(),teams:teams.map(teamOut)},null,1);
+    const fn=teams.length===1?'effectif-'+slug(teams[0].name)+'.json':'effectifs-'+teams.length+'-equipes-'+today()+'.json';
+    offerFile(fn,data,'Export des effectifs','application/json');
+  };
+};
 $('backupBtn').onclick=()=>{
   save();
-  const data=JSON.stringify({app:'temps-de-jeu-handball',v:1,date:new Date().toISOString(),
-    teams:S.teams.map(t=>({name:t.name,periodMin:t.periodMin,otMin:t.otMin,maxOn:t.maxOn,roster:t.roster.map(p=>({num:p.num,name:p.name,pos:p.pos}))})),
-    history:S.history},null,1);
-  offerFile('sauvegarde-temps-de-jeu-'+new Date().toISOString().slice(0,10)+'.json',data,'Sauvegarde des équipes','application/json');
+  const data=JSON.stringify({app:'temps-de-jeu-handball',v:1,kind:'full',date:new Date().toISOString(),
+    teams:S.teams.map(teamOut),history:S.history},null,1);
+  offerFile('sauvegarde-temps-de-jeu-'+today()+'.json',data,'Sauvegarde complète','application/json');
 };
 $('restoreIn').addEventListener('change',e=>{
   const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;
   f.text().then(txt=>{
-    let d;try{d=JSON.parse(txt);}catch(err){toast('Fichier illisible : choisis une sauvegarde .json de l\'app');return;}
-    if(!d||!Array.isArray(d.teams)){toast('Ce fichier n\'est pas une sauvegarde d\'équipes');return;}
-    const names=new Set(S.teams.map(t=>t.name));
-    let added=0,updated=0;
-    d.teams.forEach(t=>{
-      if(!t||!t.name||!Array.isArray(t.roster))return;
-      const roster=t.roster.map(p=>({id:'p'+(++S.seq),num:String(p.num||''),name:String(p.name||''),pos:POS.includes(p.pos)?p.pos:'DC'}));
-      const ex=S.teams.find(x=>x.name===t.name);
-      if(ex){
-        if(ex.id===S.teamId)return; // on ne touche pas à l'équipe en cours
-        ex.roster=roster;ex.periodMin=t.periodMin||30;ex.otMin=t.otMin||5;ex.maxOn=t.maxOn||7;ex.example=false;updated++;
-      }else{
-        S.teams.push({id:'t'+(++S.tseq),name:t.name,roster,example:false,periodMin:t.periodMin||30,otMin:t.otMin||5,maxOn:t.maxOn||7});added++;
-      }
-    });
-    let hAdded=0;
-    if(Array.isArray(d.history))d.history.forEach(h=>{if(h&&h.id&&h.m&&Array.isArray(h.roster)&&!S.history.some(x=>x.id===h.id)){S.history.push(h);hAdded++;}});
-    save();renderTeams();
-    toast((hAdded?hAdded+' match'+(hAdded>1?'s':'')+' · ':'')+added+' équipe'+(added>1?'s':'')+' ajoutée'+(added>1?'s':'')+(updated?', '+updated+' mise'+(updated>1?'s':'')+' à jour':''));
+    let d;try{d=JSON.parse(txt);}catch(err){toast('Fichier illisible : choisis un fichier .json exporté par l\'app');return;}
+    if(!d||(!Array.isArray(d.teams)&&!Array.isArray(d.history))){toast('Ce fichier n\'est pas un export de l\'app Temps de jeu');return;}
+    openImport(d);
   });
 });
+function openImport(d){
+  const teams=(d.teams||[]).filter(t=>t&&t.name&&Array.isArray(t.roster));
+  const hist=(d.history||[]).filter(h=>h&&h.id&&h.m&&Array.isArray(h.roster));
+  const newHist=hist.filter(h=>!S.history.some(x=>x.id===h.id));
+  const items=teams.map((t,i)=>{const ex=S.teams.find(x=>x.name===t.name);
+    const cur=ex&&ex.id===S.teamId;
+    return {key:String(i),label:t.name,checked:!cur,disabled:cur,
+      sub:t.roster.length+' joueur'+(t.roster.length>1?'s':'')+' · '+(cur?'équipe active ici : charge une autre équipe pour pouvoir la remplacer':ex?'remplacera l\'effectif existant':'nouvelle équipe')};});
+  let html='<h4>Importer</h4>';
+  if(items.length)html+='<p>Équipes contenues dans le fichier :</p>'+checkList(items);
+  if(hist.length)html+='<label class="ckrow ckhist"><input type="checkbox" id="impHist"'+(newHist.length?' checked':' disabled')+'><span><b>Historique des matchs</b><small>'+
+    (newHist.length?newHist.length+' match'+(newHist.length>1?'s':'')+' à ajouter'+(hist.length>newHist.length?' ('+(hist.length-newHist.length)+' déjà présent'+(hist.length-newHist.length>1?'s':'')+')':''):'tous les matchs sont déjà présents')+'</small></span></label>';
+  html+='<div class="dlg-actions">'+(items.length>1?'<button class="btn" id="ckAll">Tout cocher / décocher</button>':'')+'<span style="flex:1"></span><button class="btn" data-close>Annuler</button><button class="btn primary" id="impGo">Importer</button></div>';
+  openDlg(html);$('dialog').classList.add('wide');
+  const upd=()=>{const n=$('dialog').querySelectorAll('.cklist input:checked').length,h=$('impHist')&&$('impHist').checked;$('impGo').disabled=!n&&!h;};
+  $('dialog').addEventListener('change',upd);upd();
+  if($('ckAll'))$('ckAll').onclick=()=>{ckAll();upd();};
+  $('impGo').onclick=()=>{
+    const pickT=new Set([...$('dialog').querySelectorAll('.cklist input:checked')].map(c=>+c.dataset.k));
+    const doHist=$('impHist')&&$('impHist').checked;
+    let added=0,updated=0,hAdded=0;
+    teams.forEach((t,i)=>{
+      if(!pickT.has(i))return;
+      const roster=t.roster.map(p=>({id:'p'+(++S.seq),num:String(p.num||''),name:String(p.name||''),pos:POS.includes(p.pos)?p.pos:'DC'}));
+      const ex=S.teams.find(x=>x.name===t.name);
+      if(ex){if(ex.id===S.teamId)return;
+        ex.roster=roster;ex.periodMin=t.periodMin||30;ex.otMin=t.otMin||5;ex.maxOn=t.maxOn||7;if(t.dest)ex.dest=t.dest;ex.example=false;updated++;}
+      else{const nt={id:'t'+(++S.tseq),name:t.name,roster,example:false,periodMin:t.periodMin||30,otMin:t.otMin||5,maxOn:t.maxOn||7};if(t.dest)nt.dest=t.dest;S.teams.push(nt);added++;}
+    });
+    if(doHist)newHist.forEach(h=>{S.history.push(h);hAdded++;});
+    save();renderTeams();closeDlg();
+    const parts=[];
+    if(added)parts.push(added+' équipe'+(added>1?'s':'')+' ajoutée'+(added>1?'s':''));
+    if(updated)parts.push(updated+' mise'+(updated>1?'s':'')+' à jour');
+    if(hAdded)parts.push(hAdded+' match'+(hAdded>1?'s':'')+' ajouté'+(hAdded>1?'s':''));
+    toast(parts.length?parts.join(' · '):'Rien à importer');
+  };
+}
 
 /* ---------- Dialogues ---------- */
 function openDlg(html){$('dialog').classList.remove('wide');$('dialog').innerHTML=html;$('modal').classList.add('show');}
@@ -1727,14 +1836,14 @@ window.addEventListener('pagehide',()=>{commit();save();});
 
 commit();renderAll();
 window.__tdj={seg:t=>vsegment(t),S:()=>S,buildReport:()=>buildReport(),voice:a=>handleVoice(a),vparse:t=>vparse(t)};
-if('serviceWorker' in navigator&&!/claude/.test(location.hostname)&&(location.protocol==='https:'||location.hostname==='localhost')){
+if(!NATIVE&&'serviceWorker' in navigator&&!/claude/.test(location.hostname)&&(location.protocol==='https:'||location.hostname==='localhost')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;
       w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)
         toast('Nouvelle version disponible','Mettre à jour',()=>location.reload(),true);});});
   }).catch(()=>{});
 }
-$('verInfo').textContent='Version '+APP_VERSION+(navigator.standalone||matchMedia('(display-mode: standalone)').matches?' · installée sur l\'écran d\'accueil':' · ouverte dans le navigateur : ajoute-la à l\'écran d\'accueil pour l\'utiliser hors ligne');
+$('verInfo').textContent='Version '+APP_VERSION+(NATIVE?' · app iOS':navigator.standalone||matchMedia('(display-mode: standalone)').matches?' · installée sur l\'écran d\'accueil':' · ouverte dans le navigateur : ajoute-la à l\'écran d\'accueil pour l\'utiliser hors ligne');
 })();
 </script>
 </body>
