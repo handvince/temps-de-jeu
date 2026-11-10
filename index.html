@@ -336,6 +336,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   #view-match.big .tile .sub{font-size:14px}
   #view-match.big .pc{font-size:13px}
   #view-match.big .slot-t{font-size:46px}
+  #view-match.big .tile.dq .tt,#view-match.big .tile.ready .tt{font-size:20px}
 }
 /* ---------- iPhone portrait ---------- */
 @media (max-width:600px){
@@ -596,7 +597,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.7.4';
+const APP_VERSION='1.7.6';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -658,7 +659,7 @@ function advance(d){
   m.on.forEach(id=>{const s=st(id);s.per[p]=Math.max(0,s.per[p]+d);});
   m.excl.forEach(e=>{
     if(e.rem>0){const before=e.rem;e.rem=Math.max(0,Math.min(EXCL_MS,e.rem-d));
-      if(before>0&&e.rem===0){const pl=P(e.id);toast('Fin des 2 min'+(pl?' de #'+pl.num:'')+' : un joueur peut entrer');}}
+      if(before>0&&e.rem===0){const pl=P(e.id);toast((e.dq?'Fin de la sanction':'Fin des 2 min')+(pl?' de #'+pl.num:'')+(e.dq?' (disqualifié)':'')+' : un joueur peut entrer');}}
   });
   m.excl=m.excl.filter(e=>e.rem>0);
 }
@@ -724,6 +725,10 @@ function doDisq(id,card){
     S.m.excl.push({id,rem:EXCL_MS,dq:true});
     logEv(card==='blue'?'blue':'red',id);
   });
+}
+function slotLabel(e,p){
+  const c=e.dq?(st(e.id).card||'red'):'',n=p?' #'+esc(p.num):'';
+  return c==='blue'?'carton bleu'+n:c==='3x2'?'3e exclusion'+n:c?'carton rouge'+n:'2 min'+(p?' de #'+esc(p.num):'');
 }
 function doDismissExcl(id){act(()=>{S.m.excl=S.m.excl.filter(e=>e.id!==id);});}
 
@@ -808,9 +813,10 @@ function renderMatch(force){
   const court=m.on.map(P).filter(Boolean).sort(byNum);
   let ch=court.map(p=>tileHTML(p,'court')).join('');
   m.excl.forEach(e=>{if(e.rem<=0)return;const p=P(e.id);
-    ch+='<div class="slot" aria-label="Place vide : exclusion"><span class="slot-l">Infériorité</span><span class="slot-t" data-slot="'+e.id+'"></span><span class="slot-l">'+(p?'2 min de #'+esc(p.num):'2 min')+'</span></div>';});
+    ch+='<div class="slot" aria-label="Place vide : exclusion"><span class="slot-l">Infériorité</span><span class="slot-t" data-slot="'+e.id+'"></span><span class="slot-l">'+slotLabel(e,p)+'</span></div>';});
   $('courtGrid').innerHTML=ch||'<div class="empty">Personne sur le terrain. Touche les joueurs du banc pour composer le 7 de départ.</div>';
-  const bench=sortedRoster().filter(p=>!m.on.includes(p.id));
+  /* joueurs disqualifiés (rouge, bleu, 3e exclusion) en fin de banc, dès le carton */
+  const bench=sortedRoster().filter(p=>!m.on.includes(p.id)).map((p,i)=>[p,i]).sort((a,b)=>(!!st(a[0].id).dq-!!st(b[0].id).dq)||a[1]-b[1]).map(x=>x[0]);
   $('benchGrid').innerHTML=bench.map(p=>{const e=isExcl(p.id);return tileHTML(p,e&&e.rem>0?'excl':(st(p.id).dq?'dq':'bench'));}).join('')||'<div class="empty">'+(S.roster.length?'Tout l\'effectif est en jeu.':'Aucun joueur dans cette équipe : ajoute-les dans l\'onglet Effectif.')+'</div>';
   renderActionBar();renderHeader();updateTimes();fitPhone();
 }
@@ -877,6 +883,7 @@ function updateTimes(){
   document.querySelectorAll('[data-sub]').forEach(el=>{
     const id=el.dataset.sub,s=m.st[id],e=isExcl(id);
     if(e){el.textContent=e.dq?'disqualifié':'exclu';return;}
+    if(s&&s.dq){el.textContent='joué '+fmt(total(id));return;}
     const ph=phoneMQ.matches;
     if(m.on.includes(id)){el.textContent=(ph?'jeu ':'en jeu ')+fmt(g-(s&&s.inAt!=null?s.inAt:g));return;}
     if(s&&s.outAt!=null){el.textContent='repos '+fmt(g-s.outAt);return;}
