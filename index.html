@@ -267,6 +267,11 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 .ckrow small{color:var(--muted);font-size:12px}
 .ckrow.dis{opacity:.55;cursor:default}
 .ckhist{margin-top:10px}
+.lhead{margin:12px 0 4px;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.lcmds .btn{justify-content:center}
+.news h5{margin:14px 0 4px;font-size:15px}
+.news ul{margin:0;padding-left:20px}
+.news li{margin:3px 0}
 .lchips,.achips{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}
 .lchip[aria-pressed=true]{background:var(--blue);color:#fff}
 .lplayers{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;max-height:42vh;overflow:auto;margin-bottom:8px}
@@ -565,7 +570,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
     <div class="row-actions">
       <button class="btn primary" id="addPlayer">+ Ajouter un joueur</button>
       <button class="btn" id="importBtn">Coller une liste</button>
-      <button class="btn" id="vHelpBtn">Commande vocale · noms appris</button>
+      <button class="btn" id="vHelpBtn">Commande vocale · mots appris</button>
       <span style="flex:1"></span>
       <button class="btn danger" id="newMatch">Nouveau match</button>
     </div>
@@ -578,6 +583,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
       <input type="file" id="restoreIn" accept=".json,application/json" hidden>
     </div>
     <p class="hint-p" id="verInfo"></p>
+    <div class="row-actions"><button class="btn" id="newsBtn">Nouveautés de l'app</button></div>
   </section>
 </main>
 
@@ -597,7 +603,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.7.6';
+const APP_VERSION='1.8.0';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -777,7 +783,7 @@ function renderHeader(){
   $('periodLabel').textContent=m.finished?'TERMINÉ':PERIODS[m.period];
   $('prevP').disabled=m.running||m.period===0;
   $('nextP').disabled=m.running||m.period===3;
-  const go=$('goBtn');go.textContent=m.running?'PAUSE':(m.finished?'FIN DU MATCH':(gameMs()===0?'DÉMARRER':'REPRENDRE'));
+  const go=$('goBtn');go.textContent=m.running?'ARRÊT':(m.finished?'FIN DU MATCH':(gameMs()===0?'DÉMARRER':'JEU'));
   go.classList.toggle('done',!!m.finished&&!m.running);
   go.classList.toggle('running',m.running);
   $('clock').classList.toggle('paused',!m.running);
@@ -1310,10 +1316,19 @@ function vphon(w){
   x=x.replace(/[tdsxpg]+$/,'').replace(/(.)\1+/g,'$1');
   return x;
 }
+/* Mots appris pour une commande (« jouez » → jeu…) : remplacés par le mot de commande avant l'analyse. */
+const VCMDS=[['in','Entrée','entre'],['out','Sortie','sort'],['for','Changement','pour'],['2min','2 minutes','2 minutes'],
+  ['red','Carton rouge','rouge'],['blue','Carton bleu','bleu'],['pause','Arrêt du chrono','arret'],['start','Jeu (relance)','jeu'],['undo','Correction','correction']];
+function vcmdAlias(t){
+  const L=S.vcmd||[];if(!L.length)return t;
+  L.forEach(a=>{const ph=vnorm(a.w),c=VCMDS.find(x=>x[0]===a.k);if(!ph||!c)return;
+    t=(' '+t+' ').replace(new RegExp('(^|\\s)'+ph.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?=\\s|$)','g'),'$1'+c[2]).trim();});
+  return t;
+}
 function vlev(a,b){const d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]===b[j-1]?0:1));p=t;}}return d[b.length];}
 const VKW=new Set(('pour par contre sur remplace remplacee a la place de entre entree rentre sort sortie sors in out dehors minute minutes min mn '+
   'exclusion exclu exclue carton rouge bleu disqualification disqualifie pause stop stoppe stopper arret arrete arreter arretez temps mort '+
-  'reprise reprendre reprend reprends reprenez reprenons go top demarre demarrer demarrez demarrage relance relancer lance lancer c est parti start '+
+  'jeu reprise reprendre reprend reprends reprenez reprenons go top demarre demarrer demarrez demarrage relance relancer lance lancer c est parti start '+
   'annule annuler annulation correction corrige corriger oups retour on le les l et puis numero joueur ok alors').split(' '));
 let vIdx=null,vIdxKey='';
 function vindex(){
@@ -1375,14 +1390,14 @@ function vplayer(tok){
 const VKEY=[
   ['undo',/\b(annule|annuler|annulation|correction|corrige|corriger|oups|retour)\b/],
   ['pause',/\b(pause|stop|stoppe|stopper|arret|arrete|arreter|arretez|temps mort)\b/],
-  ['start',/\b(reprise|reprendre|reprend|reprends|reprenez|reprenons|go|top|demarre|demarrer|demarrez|demarrage|relance|relancer|lance|lancer|c est parti|start)\b/],
+  ['start',/\b(jeu|reprise|reprendre|reprend|reprends|reprenez|reprenons|go|top|demarre|demarrer|demarrez|demarrage|relance|relancer|lance|lancer|c est parti|start)\b/],
   ['blue',/\b(carton bleu|bleu)\b/],
   ['red',/\b(carton rouge|rouge|disqualification|disqualifie)\b/],
   ['2min',/\b(2 minutes?|deux minutes?|2 min|deux min|2mn|exclusion|exclu|exclue)\b/]
 ];
 function vparse(raw){
   let t0=vnorm(raw);if(!t0)return {err:'rien entendu'};
-  t0=vnames(vnums(t0));
+  t0=vnames(vnums(vcmdAlias(t0)));
   for(const [k,re] of VKEY){
     if(!re.test(t0))continue;
     if(k==='undo'||k==='pause'||k==='start')return {type:k,txt:raw};
@@ -1420,7 +1435,7 @@ function vcheck(c){
   const lab=p=>'#'+p.num+' '+p.name;
   switch(c.type){
     case 'undo':return undo.length?{ok:1,label:'Annuler la dernière action'}:{err:'rien à annuler'};
-    case 'pause':return m.running?{ok:1,label:'Pause du chrono'}:{err:'le chrono est déjà arrêté'};
+    case 'pause':return m.running?{ok:1,label:'Arrêt du chrono'}:{err:'le chrono est déjà arrêté'};
     case 'start':return !m.running?{ok:1,label:'Chrono lancé'}:{err:'le chrono tourne déjà'};
     case 'in':if(on(c.a.id))return {err:lab(c.a)+' est déjà sur le terrain'};if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est exclu'};
       if(m.on.length>=capacity())return {err:'terrain complet : dis « … pour '+c.a.num+' »'};return {ok:1,label:'Entre '+lab(c.a)};
@@ -1452,14 +1467,14 @@ function vexec(c){
 /* Découpe un texte dicté d'un bloc (« 9 pour 72 minutes 5entre 4 ») en commandes séparées.
    Les numéros collés sont redécoupés d'après l'effectif (« 75 » → 7 et 5 si 75 n'existe pas). */
 function vsegment(text){
-  let t=' '+vnorm(text)+' ';
+  let t=' '+vcmdAlias(vnorm(text))+' ';
   t=t.replace(/(\d)([a-z])/g,'$1 $2').replace(/([a-z])(\d)/g,'$1 $2');
   const K=(re,tok)=>{t=t.replace(re,' '+tok+' ');};
   t=t.replace(/(\d*)2\s?(minutes?|min|mn)\b/g,(m,a)=>' '+(a?a+' ':'')+'K2MIN ');
   K(/\bdeux\s?(minutes?|min|mn)\b/g,'K2MIN');K(/\b(exclusion|exclue|exclu)\b/g,'K2MIN');
   K(/\b(carton rouge|rouge|disqualification|disqualifie)\b/g,'KRED');K(/\b(carton bleu|bleu)\b/g,'KBLUE');
-  K(/\b(temps mort|pause|stoppe|stopper|stop|arretez|arreter|arrete|arret)\b/g,'KPAUSE');
-  K(/\b(on reprend|reprendre|reprenez|reprenons|reprends|reprend|reprise|c est parti|demarrage|demarrez|demarrer|demarre|relancer|relance|lancer|lance|start|top|go)\b/g,'KSTART');
+  K(/\b(arret de jeu|arret du jeu|temps mort|pause|stoppe|stopper|stop|arretez|arreter|arrete|arret)\b/g,'KPAUSE');
+  K(/\b(on reprend|jeu|reprendre|reprenez|reprenons|reprends|reprend|reprise|c est parti|demarrage|demarrez|demarrer|demarre|relancer|relance|lancer|lance|start|top|go)\b/g,'KSTART');
   K(/\b(annulation|annuler|annule|correction|corriger|corrige|oups|retour)\b/g,'KUNDO');
   K(/\b(remplacee par|remplace par|a la place de|place de|remplace|pour|par|contre|sur)\b/g,'KFOR');
   K(/\b(entree|entre|rentre|in)\b/g,'KIN');K(/\b(sortie|sort|sors|out|dehors)\b/g,'KOUT');
@@ -1510,7 +1525,7 @@ function handleVoice1(alts){
 function vcandidates(alts){
   const seen=new Set(),out=[];
   alts.slice(0,3).forEach(a=>{
-    const toks=vnamesToks(vnums(vnorm(a)).split(' ').filter(Boolean));let run=[];
+    const toks=vnamesToks(vnums(vcmdAlias(vnorm(a))).split(' ').filter(Boolean));let run=[];
     const flush=()=>{for(let n=Math.min(3,run.length);n>=1;n--)for(let i=0;i+n<=run.length;i++){const ph=run.slice(i,i+n).join(' ');if(ph.length>=2&&!seen.has(ph)){seen.add(ph);out.push(ph);}}run=[];};
     toks.forEach(x=>{if(/\d/.test(x)||VKW.has(x))flush();else run.push(x);});flush();
   });
@@ -1521,9 +1536,12 @@ function openLearn(alts){
   if(!cands.length){toast('Aucun mot à associer dans cette phrase');return;}
   let phrase=cands[0];
   const R0=[...S.roster].sort((a,b)=>(+a.num||0)-(+b.num||0));
-  openDlg('<h4>Apprendre un nom</h4><p>Entendu : « '+esc(alts[0])+' ». Touche le mot qui désignait le joueur, puis le joueur.</p>'+
+  openDlg('<h4>Apprendre un mot</h4><p>Entendu : « '+esc(alts[0])+' ». Touche le mot mal compris, puis ce qu\'il voulait dire : un joueur ou une commande.</p>'+
     '<div class="lchips">'+cands.map((c,i)=>'<button class="btn lchip" data-c="'+i+'" aria-pressed="'+(i===0)+'">'+esc(c)+'</button>').join('')+'</div>'+
+    '<p class="lhead">Un joueur</p>'+
     '<div class="lplayers">'+R0.map(p=>'<button class="btn" data-p="'+p.id+'"><b>'+esc(p.num)+'</b> '+esc(p.name)+'</button>').join('')+'</div>'+
+    '<p class="lhead">Une commande</p>'+
+    '<div class="lplayers lcmds">'+VCMDS.map(c=>'<button class="btn" data-k="'+c[0]+'">'+esc(c[1])+'</button>').join('')+'</div>'+
     '<div class="btns"><button class="btn" data-close>Annuler</button></div>');
   $('dialog').classList.add('wide');
   $('dialog').querySelectorAll('[data-c]').forEach(b=>b.onclick=()=>{phrase=cands[+b.dataset.c];
@@ -1532,8 +1550,17 @@ function openLearn(alts){
     const p=S.roster.find(x=>x.id===b.dataset.p);if(!p)return;
     const a=phrase.replace(/ /g,'');
     S.roster.forEach(q=>{if(q.alias)q.alias=q.alias.filter(x=>vnorm(x).replace(/ /g,'')!==a);});
+    S.vcmd=(S.vcmd||[]).filter(x=>vnorm(x.w).replace(/ /g,'')!==a);
     p.alias=(p.alias||[]).concat([phrase]).slice(-8);save();closeDlg();
     toast('« '+phrase+' » = #'+p.num+' '+p.name);
+    handleVoice1(alts);
+  });
+  $('dialog').querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{
+    const c=VCMDS.find(x=>x[0]===b.dataset.k);if(!c)return;
+    const a=phrase.replace(/ /g,'');
+    S.roster.forEach(q=>{if(q.alias){q.alias=q.alias.filter(x=>vnorm(x).replace(/ /g,'')!==a);if(!q.alias.length)delete q.alias;}});
+    S.vcmd=(S.vcmd||[]).filter(x=>vnorm(x.w).replace(/ /g,'')!==a).concat([{w:phrase,k:c[0]}]).slice(-40);save();closeDlg();
+    toast('« '+phrase+' » = '+c[1]);
     handleVoice1(alts);
   });
 }
@@ -1578,7 +1605,7 @@ const CAP=window.Capacitor,NATIVE=!!(CAP&&CAP.isNativePlatform&&CAP.isNativePlat
 const NSP=NATIVE?(CAP.Plugins&&CAP.Plugins.TdjSpeech)||(CAP.registerPlugin&&CAP.registerPlugin('TdjSpeech')):null;
 let nListening=false,nPermOk=false,nRetry=null;
 function nContext(){
-  const w=['correction','entre','sort','remplacé par','2 minutes','deux minutes','exclusion','carton rouge','carton bleu','rouge','bleu','pause','temps mort','reprendre','reprise','annule'];
+  const w=['correction','entre','sort','remplacé par','2 minutes','deux minutes','exclusion','carton rouge','carton bleu','rouge','bleu','pause','arrêt','temps mort','jeu','reprendre','reprise','annule'];
   const names=[];(S.roster||[]).forEach(p=>{if(p&&p.name){const n=String(p.name).trim().toLowerCase().replace(/(^|[\s-])\S/g,c=>c.toUpperCase());if(n)names.push(n);const last=n.split(/\s+/).pop();if(last&&last!==n)names.push(last);}});
   return [...new Set(names.concat(w))].slice(0,100);
 }
@@ -1651,6 +1678,7 @@ $('voiceIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault
 $('voiceClose').addEventListener('click',()=>setVoice(false));
 $('voiceHelp').addEventListener('click',openVoiceHelp);
 $('vHelpBtn').addEventListener('click',openVoiceHelp);
+$('newsBtn').addEventListener('click',()=>openNews(null));
 function openVoiceHelp(){
   openDlg('<h4>Commandes vocales</h4>'+
     '<div class="vhelp">'+
@@ -1660,7 +1688,7 @@ function openVoiceHelp(){
 
     '<b>2 minutes 5</b><span>exclusion du 5 (aussi « exclusion 5 »)</span>'+
     '<b>rouge 5 · bleu 5</b><span>carton rouge / carton bleu</span>'+
-    '<b>pause · reprendre</b><span>arrêt / relance du chrono (aussi « stop », « arrête », « temps mort » / « reprise », « démarrer », « relance », « top »)</span>'+
+    '<b>arrêt · jeu</b><span>arrêt / relance du chrono, comme le gros bouton (aussi « pause », « stop », « temps mort » / « reprendre », « reprise », « démarrer », « top »)</span>'+
     '<b>correction · annule</b><span>annule la dernière action (aussi « corrige », « annuler », « oups »)</span>'+
     '</div>'+
     '<p>Les noms de famille marchent aussi (« Dupont pour Martin » : Dupont sort, Martin entre). Une commande incohérente avec le match (joueur déjà en jeu, terrain complet…) est ignorée et signalée : rien n\'est modifié par erreur. Chaque action reste annulable.</p>'+
@@ -1672,11 +1700,18 @@ function openVoiceHelp(){
 }
 function vAliasHtml(){
   const L=[];S.roster.forEach(p=>(p.alias||[]).forEach((a,i)=>L.push('<span class="achip">« '+esc(a)+' » → #'+esc(p.num)+' '+esc(p.name)+' <button type="button" aria-label="Oublier" data-ap="'+p.id+'" data-ai="'+i+'">✕</button></span>')));
-  return '<p><b>Noms appris</b> : si un nom est mal compris, touche « Apprendre » après la commande ratée pour l\'associer au joueur.</p>'+
-    (L.length?'<div class="achips" id="achips">'+L.join('')+'</div>':'<p class="hint-p">Aucun pour cette équipe.</p>');
+  const C=(S.vcmd||[]).map((a,i)=>{const c=VCMDS.find(x=>x[0]===a.k);return '<span class="achip">« '+esc(a.w)+' » → '+esc(c?c[1]:a.k)+' <button type="button" aria-label="Oublier" data-ci="'+i+'">✕</button></span>';});
+  return '<p><b>Mots appris</b> : si un mot est mal compris, touche « Apprendre » après la commande ratée pour l\'associer à un joueur ou à une commande.</p>'+
+    '<p class="lhead">Noms de joueurs (équipe en cours)</p>'+
+    (L.length?'<div class="achips" id="achips">'+L.join('')+'</div>':'<p class="hint-p">Aucun.</p>')+
+    '<p class="lhead">Commandes (toutes les équipes)</p>'+
+    (C.length?'<div class="achips" id="cchips">'+C.join('')+'</div>':'<p class="hint-p">Aucune.</p>');
 }
-function vAliasBind(){const box=$('achips');if(!box)return;box.onclick=e=>{const b=e.target.closest('[data-ap]');if(!b)return;
-  const p=S.roster.find(x=>x.id===b.dataset.ap);if(!p||!p.alias)return;p.alias.splice(+b.dataset.ai,1);if(!p.alias.length)delete p.alias;save();openVoiceHelp();};}
+function vAliasBind(){
+  const box=$('achips');if(box)box.onclick=e=>{const b=e.target.closest('[data-ap]');if(!b)return;
+    const p=S.roster.find(x=>x.id===b.dataset.ap);if(!p||!p.alias)return;p.alias.splice(+b.dataset.ai,1);if(!p.alias.length)delete p.alias;save();openVoiceHelp();};
+  const cb=$('cchips');if(cb)cb.onclick=e=>{const b=e.target.closest('[data-ci]');if(!b||!S.vcmd)return;S.vcmd.splice(+b.dataset.ci,1);save();openVoiceHelp();};
+}
 
 /* ---------- Fin de match ---------- */
 function savedBox(rec,title){
@@ -2021,6 +2056,37 @@ if(!NATIVE&&'serviceWorker' in navigator&&!/claude/.test(location.hostname)&&(lo
         toast('Nouvelle version disponible','Mettre à jour',()=>location.reload(),true);});});
   }).catch(()=>{});
 }
+/* ---------- Nouveautés : affichées au premier lancement après une mise à jour ---------- */
+const CHANGELOG=[
+  ['1.8.0','11 nov. 2026',['Bouton du chrono : « ARRÊT » et « JEU » remplacent « PAUSE » et « REPRENDRE ». À la voix : « arrêt » et « jeu ».',
+    '« Apprendre » associe un mot mal compris à un joueur OU à une commande (ex. « jouez » → Jeu).',
+    'Mots appris visibles et supprimables : Effectif › Commande vocale · mots appris.',
+    'Cette fenêtre de nouveautés, aussi accessible dans Effectif › Nouveautés de l\'app.']],
+  ['1.7.6','10 nov. 2026',['Joueur disqualifié (rouge, bleu, 3e exclusion) placé en fin de banc.']],
+  ['1.7.5','10 nov. 2026',['Carton rouge/bleu : case « carton rouge #x » sur le terrain, message de fin de sanction, temps joué affiché sur la vignette.']],
+  ['1.7.4','10 nov. 2026',['Affichage iPad corrigé (Pro 11", Pro 13", mini, portrait et paysage) ; vignettes plus grandes qui remplissent l\'écran.']],
+  ['1.7.3','10 nov. 2026',['Commande vocale « correction » pour annuler la dernière action.']],
+  ['1.7.2','10 nov. 2026',['Noms de joueurs reconnus même mal transcrits (prononciation) ; bouton « Apprendre » après une commande ratée.']],
+  ['1.7.1','10 nov. 2026',['Export d\'effectifs seuls et import sélectif (équipes et/ou matchs).']],
+  ['1.7.0','9 nov. 2026',['Première version de l\'app iOS : commande vocale native en continu avec casque Bluetooth, écran toujours allumé, partage natif.']]
+];
+function vcmp(a,b){const x=a.split('.').map(Number),y=b.split('.').map(Number);for(let i=0;i<3;i++){if((x[i]||0)!==(y[i]||0))return (x[i]||0)-(y[i]||0);}return 0;}
+function openNews(since){
+  const L=CHANGELOG.filter(c=>!since||vcmp(c[0],since)>0);if(!L.length)return;
+  openDlg('<h4>'+(since?'Nouveautés de la version '+APP_VERSION:'Nouveautés de l\'app')+'</h4><div class="news">'+
+    L.map(c=>'<h5>Version '+c[0]+' · '+c[1]+'</h5><ul>'+c[2].map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>').join('')+
+    '</div><div class="btns"><button class="btn primary" data-close>OK</button></div>');
+  $('dialog').classList.add('wide');
+}
+(function(){
+  const seen=S.seenVer;
+  if(seen!==APP_VERSION){
+    /* première installation : rien à montrer ; mise à jour : les versions depuis la dernière vue */
+    const fresh=!seen&&!(S.history&&S.history.length)&&!(S.teams||[]).some(t=>!t.example);
+    S.seenVer=APP_VERSION;save();
+    if(!fresh)setTimeout(()=>openNews(seen||CHANGELOG[1][0]),600);
+  }
+})();
 $('verInfo').textContent='Version '+APP_VERSION+(NATIVE?' · app iOS':navigator.standalone||matchMedia('(display-mode: standalone)').matches?' · installée sur l\'écran d\'accueil':' · ouverte dans le navigateur : ajoute-la à l\'écran d\'accueil pour l\'utiliser hors ligne');
 })();
 </script>
