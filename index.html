@@ -187,7 +187,7 @@ main{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
 .btn:disabled{opacity:.35;cursor:default}
 
 /* ---------- Onglets ---------- */
-nav.tabs{display:grid;grid-template-columns:repeat(3,1fr) auto;background:rgba(10,19,80,.92);border-top:2px solid var(--blue);padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs{display:grid;grid-template-columns:repeat(3,1fr) minmax(64px,.55fr) auto;background:rgba(10,19,80,.92);border-top:2px solid var(--blue);padding-bottom:env(safe-area-inset-bottom)}
 nav.tabs button{height:64px;border:none;background:none;font-family:var(--display);font-size:20px;white-space:nowrap;text-transform:uppercase;color:var(--muted)}
 .report-btn{display:flex;align-items:center;gap:10px;margin:8px 12px;height:48px!important;padding:0 18px;border-radius:12px;
   background:var(--accent)!important;color:var(--navy)!important;font-family:var(--display);font-size:18px;text-transform:uppercase;white-space:nowrap}
@@ -267,6 +267,53 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 .ckrow small{color:var(--muted);font-size:12px}
 .ckrow.dis{opacity:.55;cursor:default}
 .ckhist{margin-top:10px}
+/* ---------- Aide : commandes vocales + mode d'emploi ---------- */
+nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;border:2px solid currentColor;font-size:17px;line-height:1}
+#view-help{max-width:980px;margin:0 auto}
+.hseg{display:flex;gap:8px;margin-bottom:16px;position:sticky;top:0;z-index:2;padding:6px 0;background:linear-gradient(var(--bg) 70%,transparent)}
+.hseg .btn{flex:1;height:52px;font-size:16px}
+.hseg .btn[aria-pressed=true]{background:var(--accent);color:var(--navy);border-color:var(--accent)}
+.vtab{width:100%;border-collapse:separate;border-spacing:0 6px}
+.vtab{table-layout:auto}.vtab th{text-align:left;font-family:var(--display);text-transform:uppercase;font-size:15px;color:var(--accent);padding:14px 10px 2px}
+.vtab td{text-align:left;white-space:normal;background:var(--surface);padding:10px 12px;vertical-align:middle;font-size:15px;line-height:1.3}
+.vtab td:first-child{border-radius:10px 0 0 10px;width:1%;white-space:nowrap}
+.vtab td:last-child{border-radius:0 10px 10px 0;color:var(--muted);font-size:13px}
+.say{display:inline-block;font-family:var(--display);font-size:20px;color:var(--navy);background:var(--accent);border-radius:999px;padding:4px 14px;white-space:nowrap}
+.say::before{content:"« "}.say::after{content:" »"}
+.vnote{display:grid;gap:8px;margin:14px 0}
+.vnote div{display:flex;gap:10px;align-items:flex-start;background:rgba(36,72,223,.25);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px}
+.vnote b{color:var(--accent)}
+.hgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.hcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.hcard h5{margin:0;display:flex;align-items:center;gap:10px;font-family:var(--display);text-transform:uppercase;font-size:19px;font-weight:400}
+.hcard h5 i{font-style:normal;display:inline-grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--accent);color:var(--navy);font-size:18px;flex:none}
+.hvis{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;min-height:84px;padding:10px;border-radius:10px;background:rgba(0,0,0,.25)}
+.hcard ul{margin:0;padding-left:18px;font-size:14px;line-height:1.4}
+.hcard li{margin:2px 0}.hcard li b{color:var(--accent);font-weight:600}
+.hx-arrow{font-size:22px;color:var(--accent)}
+.hx-tile{width:92px;height:70px;border-radius:10px;border:2px solid var(--line);background:var(--surface-2);padding:5px 8px;display:flex;flex-direction:column;justify-content:space-between;font-size:11px;position:relative}
+.hx-tile b{font-family:var(--display);font-size:24px;line-height:1;font-weight:400}
+.hx-tile .t{font-family:var(--display);font-size:15px}
+.hx-tile.on{border-color:var(--accent);box-shadow:0 0 0 2px rgba(217,250,122,.25)}
+.hx-tile.ex{border:2px dashed var(--red)}
+.hx-tile.dq{opacity:.45}
+.hx-tile .tap{position:absolute;right:-6px;top:-8px;font-size:20px}
+.hx-slot{width:92px;height:70px;border-radius:10px;border:2px dashed var(--red);display:grid;place-items:center;text-align:center;font-size:10px;color:#ffb4ab}
+.hx-slot b{font-family:var(--display);font-size:20px;color:#fff;font-weight:400}
+.hx-btn{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 14px;border-radius:10px;font-family:var(--display);font-size:16px;border:2px solid var(--line);background:var(--surface-2);white-space:nowrap}
+.hx-btn.hgo{background:var(--accent);color:var(--navy);border-color:var(--accent)}
+.hx-btn.hex{border-color:var(--red);background:rgba(233,51,35,.18)}
+.hx-btn.hmic{border-color:var(--sky);background:rgba(77,169,225,.15)}
+.hx-btn.sm{height:30px;font-size:13px;padding:0 10px}
+.hx-bub{background:#fff;color:var(--navy);border-radius:14px 14px 14px 2px;padding:6px 12px;font-weight:600;font-size:14px}
+.hfoot{margin:18px 0 6px;color:var(--muted);font-size:12px;text-align:center}
+@media (max-width:600px){
+  .vtab td{font-size:13px;padding:8px}.say{font-size:16px;padding:3px 10px}
+  .vtab td:last-child{display:none}
+  .hgrid{grid-template-columns:1fr}
+  nav.tabs .qm{width:24px;height:24px;font-size:15px}
+  .hseg .btn{font-size:14px;height:46px}
+}
 .lhead{margin:12px 0 4px;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 .lcmds .btn{justify-content:center}
 .news h5{margin:14px 0 4px;font-size:15px}
@@ -545,6 +592,13 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
     <ul class="log" id="log"></ul>
   </section>
 
+  <section class="view" id="view-help" aria-label="Aide">
+    <div class="hseg" role="tablist">
+      <button class="btn" data-h="voice" aria-pressed="true">🎤 Commandes vocales</button>
+      <button class="btn" data-h="guide" aria-pressed="false">📖 Mode d'emploi</button>
+    </div>
+    <div id="helpBody"></div>
+  </section>
   <section class="view" id="view-roster" aria-label="Effectif et réglages">
     <button class="team-pick" id="teamPick" aria-haspopup="dialog">
       <span class="tp-txt"><span class="tp-l">Équipe active</span><b id="tpName"></b><span id="tpInfo"></span></span>
@@ -570,7 +624,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
     <div class="row-actions">
       <button class="btn primary" id="addPlayer">+ Ajouter un joueur</button>
       <button class="btn" id="importBtn">Coller une liste</button>
-      <button class="btn" id="vHelpBtn">Commande vocale · mots appris</button>
+      <button class="btn" id="vHelpBtn">Aide · commandes vocales</button>
       <span style="flex:1"></span>
       <button class="btn danger" id="newMatch">Nouveau match</button>
     </div>
@@ -593,6 +647,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
   <button role="tab" data-view="match" aria-selected="true">Match</button>
   <button role="tab" data-view="stats" aria-selected="false">Temps<span class="long"> de jeu</span></button>
   <button role="tab" data-view="roster" aria-selected="false">Effectif</button>
+  <button role="tab" data-view="help" aria-selected="false" aria-label="Aide"><span class="qm">?</span><span class="long"> Aide</span></button>
   <button class="report-btn" id="reportBtn" aria-label="Envoyer le rapport PDF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg><span class="lbl">Rapport PDF</span></button>
 </nav>
 
@@ -603,7 +658,7 @@ h3.sec .saved{font-family:var(--body);font-size:12px;text-transform:none;color:v
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.8.0';
+const APP_VERSION='1.9.0';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -1679,25 +1734,7 @@ $('voiceClose').addEventListener('click',()=>setVoice(false));
 $('voiceHelp').addEventListener('click',openVoiceHelp);
 $('vHelpBtn').addEventListener('click',openVoiceHelp);
 $('newsBtn').addEventListener('click',()=>openNews(null));
-function openVoiceHelp(){
-  openDlg('<h4>Commandes vocales</h4>'+
-    '<div class="vhelp">'+
-    '<b>9 pour 7</b><span>le 9 sort, le 7 entre : on nomme toujours le sortant en premier (aussi « 9 par 7 », « 9 remplacé par 7 », « 9 contre 7 », « sort 9 entre 7 »)</span>'+
-    '<b>entre 7</b><span>le 7 entre (s\'il reste une place)</span>'+
-    '<b>sort 9</b><span>le 9 va sur le banc</span>'+
-
-    '<b>2 minutes 5</b><span>exclusion du 5 (aussi « exclusion 5 »)</span>'+
-    '<b>rouge 5 · bleu 5</b><span>carton rouge / carton bleu</span>'+
-    '<b>arrêt · jeu</b><span>arrêt / relance du chrono, comme le gros bouton (aussi « pause », « stop », « temps mort » / « reprendre », « reprise », « démarrer », « top »)</span>'+
-    '<b>correction · annule</b><span>annule la dernière action (aussi « corrige », « annuler », « oups »)</span>'+
-    '</div>'+
-    '<p>Les noms de famille marchent aussi (« Dupont pour Martin » : Dupont sort, Martin entre). Une commande incohérente avec le match (joueur déjà en jeu, terrain complet…) est ignorée et signalée : rien n\'est modifié par erreur. Chaque action reste annulable.</p>'+
-    '<p><b>En tribune :</b> parle près du micro, en commandes courtes. Un kit main-libre ou des écouteurs avec micro (AirPods…) filtrent nettement mieux le bruit de la salle. '+
-    (NATIVE?'Touche le bouton micro pour activer l\'écoute : elle reste active jusqu\'à ce que tu le touches de nouveau, écran allumé. Le micro du casque Bluetooth est utilisé automatiquement s\'il est connecté ; chaque commande est exécutée dès que tu marques une courte pause.':SRok?'Touche le bouton micro pour activer l\'écoute : elle reste active jusqu\'à ce que tu le touches de nouveau.':'Dans l\'app installée, iOS ne propose pas la reconnaissance vocale aux apps web : touche le micro du clavier (dictée) ; chaque commande est exécutée dès que tu marques une pause. Active la dictée dans Réglages › Général › Clavier si le micro n\'apparaît pas.')+'</p>'+
-    vAliasHtml()+
-    '<div class="btns"><button class="btn primary" data-close>OK</button></div>');
-  vAliasBind();
-}
+function openVoiceHelp(){helpTab='voice';closeDlg();showView('help');document.querySelector('main').scrollTop=0;}
 function vAliasHtml(){
   const L=[];S.roster.forEach(p=>(p.alias||[]).forEach((a,i)=>L.push('<span class="achip">« '+esc(a)+' » → #'+esc(p.num)+' '+esc(p.name)+' <button type="button" aria-label="Oublier" data-ap="'+p.id+'" data-ai="'+i+'">✕</button></span>')));
   const C=(S.vcmd||[]).map((a,i)=>{const c=VCMDS.find(x=>x[0]===a.k);return '<span class="achip">« '+esc(a.w)+' » → '+esc(c?c[1]:a.k)+' <button type="button" aria-label="Oublier" data-ci="'+i+'">✕</button></span>';});
@@ -1709,8 +1746,8 @@ function vAliasHtml(){
 }
 function vAliasBind(){
   const box=$('achips');if(box)box.onclick=e=>{const b=e.target.closest('[data-ap]');if(!b)return;
-    const p=S.roster.find(x=>x.id===b.dataset.ap);if(!p||!p.alias)return;p.alias.splice(+b.dataset.ai,1);if(!p.alias.length)delete p.alias;save();openVoiceHelp();};
-  const cb=$('cchips');if(cb)cb.onclick=e=>{const b=e.target.closest('[data-ci]');if(!b||!S.vcmd)return;S.vcmd.splice(+b.dataset.ci,1);save();openVoiceHelp();};
+    const p=S.roster.find(x=>x.id===b.dataset.ap);if(!p||!p.alias)return;p.alias.splice(+b.dataset.ai,1);if(!p.alias.length)delete p.alias;save();renderHelp();};
+  const cb=$('cchips');if(cb)cb.onclick=e=>{const b=e.target.closest('[data-ci]');if(!b||!S.vcmd)return;S.vcmd.splice(+b.dataset.ci,1);save();renderHelp();};
 }
 
 /* ---------- Fin de match ---------- */
@@ -1996,7 +2033,7 @@ function showTextDlg(title,text,note){
   const ta=$('txtOut');ta.focus();ta.select();
 }
 $('clock').addEventListener('click',()=>{
-  if(S.m.running){toast('Mets le chrono en pause pour le corriger');return;}
+  if(S.m.running){toast('Arrête le chrono (ARRÊT) pour le corriger');return;}
   openDlg('<h4>Corriger le chrono</h4><p>'+PERIODS[S.m.period]+' : <b id="adjVal" style="color:var(--accent);font-family:var(--display);font-size:22px">'+fmtClock(S.m.el[S.m.period])+'</b>. Le temps des joueurs sur le terrain est corrigé d\'autant.</p>'+
     '<div class="adj"><button data-d="-10000">−10 s</button><button data-d="-1000">−1 s</button><button data-d="1000">+1 s</button><button data-d="10000">+10 s</button></div>'+
     '<div class="adj"><button data-d="-60000">−1 min</button><button data-d="60000">+1 min</button></div>'+
@@ -2022,7 +2059,7 @@ function showView(v){
   view=v;
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('active',s.id==='view-'+v));
   document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.view===v)));
-  if(v==='stats')renderStats();if(v==='roster')renderRoster();if(v==='match')renderMatch(true);
+  if(v==='stats')renderStats();if(v==='roster')renderRoster();if(v==='match')renderMatch(true);if(v==='help')renderHelp();
   if(v!=='match')$('actionbar').classList.remove('show');
 }
 document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>showView(b.dataset.view));
@@ -2056,11 +2093,80 @@ if(!NATIVE&&'serviceWorker' in navigator&&!/claude/.test(location.hostname)&&(lo
         toast('Nouvelle version disponible','Mettre à jour',()=>location.reload(),true);});});
   }).catch(()=>{});
 }
+/* ---------- Aide (onglet « ? ») : tableau des commandes vocales et mode d'emploi ----------
+   Tout est généré depuis le code de l'app : le contenu suit chaque mise à jour.
+   VHELP = référence unique des commandes (le tableau ET les phrases de reconnaissance doivent concorder). */
+const VHELP=[
+  ['Changements',[
+    ['9 pour 7','Le 9 sort, le 7 entre. On nomme toujours le sortant en premier.','9 par 7 · 9 remplacé par 7 · 9 contre 7 · sort 9 entre 7'],
+    ['entre 7','Le 7 entre (s\'il reste une place).','entrée 7 · rentre 7'],
+    ['sort 9','Le 9 va sur le banc.','sortie 9 · dehors 9']]],
+  ['Sanctions',[
+    ['2 minutes 5','Exclusion de 2 minutes du 5.','deux minutes 5 · exclusion 5'],
+    ['rouge 5','Carton rouge : le 5 est disqualifié.','carton rouge 5'],
+    ['bleu 5','Carton bleu : le 5 est disqualifié.','carton bleu 5']]],
+  ['Chrono',[
+    ['arrêt','Arrête le chrono.','pause · stop · temps mort · arrêt de jeu'],
+    ['jeu','Relance le chrono.','reprendre · reprise · démarrer · top · go']]],
+  ['Corriger',[
+    ['correction','Annule la dernière action.','annule · corrige · oups']]]
+];
+let helpTab='voice';
+function renderHelp(){
+  document.querySelectorAll('#view-help [data-h]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.h===helpTab)));
+  $('helpBody').innerHTML=helpTab==='voice'?helpVoiceHtml():helpGuideHtml();
+  vAliasBind();
+  const g=$('helpBody').querySelector('[data-goto]');if(g)g.onclick=()=>{helpTab=g.dataset.goto;renderHelp();document.querySelector('main').scrollTop=0;};
+}
+document.querySelectorAll('#view-help [data-h]').forEach(b=>b.onclick=()=>{helpTab=b.dataset.h;renderHelp();});
+function helpVoiceHtml(){
+  const rows=VHELP.map(g=>'<tr><th colspan="3">'+esc(g[0])+'</th></tr>'+g[1].map(r=>
+    '<tr><td><span class="say">'+esc(r[0])+'</span></td><td>'+esc(r[1])+'</td><td>'+esc(r[2])+'</td></tr>').join('')).join('');
+  return '<table class="vtab"><tbody>'+rows+'</tbody></table>'+
+   '<div class="vnote">'+
+   '<div>🔢 <span><b>Numéro ou nom de famille</b> : « 9 pour 7 » ou « Dupont pour Martin ».</span></div>'+
+   '<div>➡️ <span><b>Sortant d\'abord</b>, puis entrant.</span></div>'+
+   '<div>⛓️ <span><b>Enchaîner</b> est possible : « 9 pour 7, 2 minutes 5 ».</span></div>'+
+   '<div>🛡️ <span>Commande <b>incohérente</b> (joueur déjà en jeu…) : ignorée et signalée, rien n\'est modifié.</span></div>'+
+   '<div>🎓 <span>Mot mal compris : touche <b>Apprendre</b> pour l\'associer à un joueur ou à une commande.</span></div>'+
+   '</div>'+vAliasHtml()+
+   '<p class="hfoot">Version '+APP_VERSION+'</p>';
+}
+const hT=(n,name,t,cls,tap)=>'<div class="hx-tile '+(cls||'')+'">'+(tap?'<span class="tap">👆</span>':'')+'<b>'+n+'</b><span>'+name+'</span><span class="t">'+t+'</span></div>';
+const hB=(l,c)=>'<span class="hx-btn '+(c||'')+'">'+l+'</span>';
+const hA='<span class="hx-arrow">→</span>';
+function helpGuideHtml(){
+  const C=(i,title,vis,lines)=>'<div class="hcard"><h5><i>'+i+'</i>'+title+'</h5><div class="hvis">'+vis+'</div><ul>'+lines.map(l=>'<li>'+l+'</li>').join('')+'</ul></div>';
+  return '<div class="hgrid">'+
+  C(1,'Préparer l\'équipe',hB('Effectif','sm')+hA+'<span class="hx-btn sm">7 · Dupont · AG</span>',
+    ['Onglet <b>EFFECTIF</b> : choisis l\'équipe, puis numéros, noms, postes.','Règle la <b>durée des mi-temps</b> et les <b>joueurs sur le terrain</b>.','<b>Importer un fichier</b> : effectif reçu d\'un collègue.'])+
+  C(2,'Le 7 de départ',hT(7,'Dupont','0:00','',1)+hA+hT(7,'Dupont','0:00','on'),
+    ['Touche un joueur du <b>BANC</b> : il entre sur le terrain.','Recommence jusqu\'à 7/7.'])+
+  C(3,'Le chrono',hB('DÉMARRER','hgo')+hA+hB('ARRÊT','hgo')+'<span class="hx-arrow">⇄</span>'+hB('JEU','hgo'),
+    ['<b>Un seul bouton</b> : DÉMARRER, puis ARRÊT / JEU.','<b>◀ ▶</b> : changer de période.','Chrono arrêté : <b>touche-le</b> pour le corriger.'])+
+  C(4,'Changer un joueur',hT(9,'Martin','4:12','on',1)+hA+'<span>banc</span>',
+    ['Terrain : <b>touche un joueur</b>, il sort. Un seul geste.','Banc : <b>touche un joueur</b>, il entre.','Terrain complet : <b>le remplaçant</b>, puis <b>le joueur qui sort</b>.'])+
+  C(5,'Exclusions et cartons',hB('Exclusion','hex sm')+hA+hB('2 min','sm')+hA+'<div class="hx-slot"><span>Infériorité<br><b>1:59</b></span></div>',
+    ['Bouton <b>EXCLUSION</b>, la sanction, puis le joueur.','Le joueur va au banc ; une case <b>Infériorité</b> décompte 2 min.','Rouge / bleu : joueur grisé, <b>en fin de banc</b>.'])+
+  C(6,'Corriger une erreur',hB('↶','sm')+'<span>ou</span><span class="hx-bub">correction</span>',
+    ['<b>↶</b> annule la dernière action.','Plusieurs fois de suite si besoin.'])+
+  C(7,'Commande vocale',hB('🎤 Vocal','hmic')+hA+'<span class="hx-bub">9 pour 7</span>',
+    ['<b>VOCAL</b> : l\'écoute reste active jusqu\'à ce que tu la coupes.','Casque Bluetooth : connecte-le <b>avant</b>.','<button class="btn" data-goto="voice" style="height:36px;font-size:13px">Voir toutes les commandes</button>'])+
+  C(8,'Temps de jeu et exports',hB('Temps de jeu','sm')+hA+hB('Export Dartfish','hgo sm')+hB('PDF','sm'),
+    ['Onglet <b>TEMPS DE JEU</b> : temps par joueur et par période.','<b>Export Dartfish</b> : CSV à importer dans Dartfish.','<b>RAPPORT PDF</b> : envoi WhatsApp à tout moment.'])+
+  C(9,'Fin du match',hB('Fin 2e MT','sm')+hA+hB('✓ Match terminé','hgo sm'),
+    ['Fin de la 2e période : match <b>enregistré automatiquement</b>.','<b>Historique des matchs</b> (Temps de jeu) : revoir, exporter, supprimer.','<b>Nouveau match</b> : onglet Effectif.'])+
+  C(10,'Sauvegarder et partager',hB('Exporter des effectifs','sm')+hB('Importer','sm'),
+    ['Tout est <b>enregistré en continu</b> sur l\'appareil, sans connexion.','<b>Exporter des effectifs</b> : vers un autre iPad / iPhone.','<b>Sauvegarde complète</b> : équipes + matchs.'])+
+  '</div><p class="hfoot">Version '+APP_VERSION+' · <a href="#" id="hNews" style="color:var(--sky)">Nouveautés</a></p>';
+}
+document.addEventListener('click',e=>{if(e.target&&e.target.id==='hNews'){e.preventDefault();openNews(null);}});
 /* ---------- Nouveautés : affichées au premier lancement après une mise à jour ---------- */
 const CHANGELOG=[
+  ['1.9.0','11 nov. 2026',['Nouvel onglet « ? Aide » : tableau des commandes vocales et mode d\'emploi illustré, mis à jour avec l\'app.']],
   ['1.8.0','11 nov. 2026',['Bouton du chrono : « ARRÊT » et « JEU » remplacent « PAUSE » et « REPRENDRE ». À la voix : « arrêt » et « jeu ».',
     '« Apprendre » associe un mot mal compris à un joueur OU à une commande (ex. « jouez » → Jeu).',
-    'Mots appris visibles et supprimables : Effectif › Commande vocale · mots appris.',
+    'Mots appris visibles et supprimables : onglet « ? Aide ».',
     'Cette fenêtre de nouveautés, aussi accessible dans Effectif › Nouveautés de l\'app.']],
   ['1.7.6','10 nov. 2026',['Joueur disqualifié (rouge, bleu, 3e exclusion) placé en fin de banc.']],
   ['1.7.5','10 nov. 2026',['Carton rouge/bleu : case « carton rouge #x » sur le terrain, message de fin de sanction, temps joué affiché sur la vignette.']],
