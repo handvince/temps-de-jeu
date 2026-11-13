@@ -280,6 +280,7 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
 .vtab td:last-child{border-radius:0 10px 10px 0;color:var(--muted);font-size:13px}
 .say{display:inline-block;font-family:var(--display);font-size:20px;color:var(--navy);background:var(--accent);border-radius:999px;padding:4px 14px;white-space:nowrap}
 .say::before{content:"« "}.say::after{content:" »"}
+.vnames{margin:0 0 6px}
 .vnote{display:grid;gap:8px;margin:14px 0}
 .vnote div{display:flex;gap:10px;align-items:flex-start;background:rgba(36,72,223,.25);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px}
 .vnote b{color:var(--accent)}
@@ -658,7 +659,7 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.9.0';
+const APP_VERSION='1.10.0';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -1435,7 +1436,7 @@ function vnames(t){return vnamesToks(t.split(' ').filter(Boolean)).join(' ');}
 function vplayer(tok){
   const R0=S.roster;
   if(/^\d+$/.test(tok))return R0.find(p=>String(p.num)===String(+tok))||R0.find(p=>String(p.num)===tok)||null;
-  if(tok.length<3)return null;
+  if(tok.length<3||!S.voiceNames)return null;
   {const p=vmatchName(tok);if(p)return p;}
   const lev=(a,b)=>{const d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]===b[j-1]?0:1));p=t;}}return d[b.length];};
   let best=null,bd=9;
@@ -1452,7 +1453,7 @@ const VKEY=[
 ];
 function vparse(raw){
   let t0=vnorm(raw);if(!t0)return {err:'rien entendu'};
-  t0=vnames(vnums(vcmdAlias(t0)));
+  t0=vnums(vcmdAlias(t0));if(S.voiceNames)t0=vnames(t0);
   for(const [k,re] of VKEY){
     if(!re.test(t0))continue;
     if(k==='undo'||k==='pause'||k==='start')return {type:k,txt:raw};
@@ -1533,7 +1534,7 @@ function vsegment(text){
   K(/\b(annulation|annuler|annule|correction|corriger|corrige|oups|retour)\b/g,'KUNDO');
   K(/\b(remplacee par|remplace par|a la place de|place de|remplace|pour|par|contre|sur)\b/g,'KFOR');
   K(/\b(entree|entre|rentre|in)\b/g,'KIN');K(/\b(sortie|sort|sors|out|dehors)\b/g,'KOUT');
-  t=vnames(vnums(t.replace(/\s+/g,' ').trim()));
+  t=vnums(t.replace(/\s+/g,' ').trim());if(S.voiceNames)t=vnames(t);
   const nums=new Set(S.roster.map(p=>String(p.num)));
   let toks=[];
   t.split(' ').filter(Boolean).forEach(x=>{
@@ -1559,6 +1560,57 @@ function vsegment(text){
   }
   return out;
 }
+/* ---------- Exécution anticipée (app iOS) ----------
+   La commande part dès qu'elle est complète dans le résultat partiel, sans attendre la pause :
+   « 9 pour 7 » est exécuté au « 7 ». Si le dernier numéro peut encore s'allonger (« 1 » alors que
+   l'effectif a un 16), on attend qu'il soit stable. Les commandes déjà lancées ne sont pas rejouées
+   quand l'énoncé complet arrive. */
+const vE={seg:null,done:0,cand:'',since:0,timer:null,last:''};
+function vAmbiguous(seg){
+  const m=seg.match(/(\d+)\s*$/);if(!m)return false;
+  return S.roster.some(p=>{const n=String(p.num);return n.length>m[1].length&&n.startsWith(m[1]);});
+}
+function vEarly(text,seg){
+  if(seg!==vE.seg){vE.seg=seg;vE.done=0;vE.cand='';}
+  vE.last=text;
+  const segs=vsegment(text);
+  while(vE.done<segs.length){
+    const sg=segs[vE.done],isLast=vE.done===segs.length-1;
+    const c=vparse(sg);if(c.err)return;
+    if(isLast){
+      /* dernier morceau : il doit rester inchangé un court instant (plus longtemps s'il est ambigu) */
+      const now=Date.now(),wait=vAmbiguous(sg)?450:200;
+      if(sg!==vE.cand){vE.cand=sg;vE.since=now;clearTimeout(vE.timer);
+        vE.timer=setTimeout(()=>{if(vE.seg===seg&&vE.cand===sg)vEarly(vE.last,seg);},wait+20);return;}
+      if(now-vE.since<wait)return;
+    }
+    const v=vcheck(c);if(v.err)return;
+    if(view!=='match')showView('match');
+    vexec(c);voiceFeedback(v.label,null,sg);vE.done++;vE.cand='';
+  }
+}
+function vUtter(matches,seg){
+  clearTimeout(vE.timer);
+  const done=seg!=null&&seg===vE.seg?vE.done:0;
+  vE.seg=null;vE.done=0;vE.cand='';
+  if(!done){handleVoice(matches);return;}
+  const rest=vsegment((matches[0]||'')).slice(done);
+  rest.forEach(c=>handleVoice1([c]));
+}
+/* ---------- Bip grave : commande entendue mais pas comprise ---------- */
+let vAC=null;
+function vAudioUnlock(){try{const C=window.AudioContext||window.webkitAudioContext;if(!C)return;if(!vAC)vAC=new C();if(vAC.state==='suspended')vAC.resume();}catch(e){}}
+function vBeep(){
+  vBeep.n=(vBeep.n||0)+1;
+  try{vAudioUnlock();if(!vAC)return;const t=vAC.currentTime,o=vAC.createOscillator(),g=vAC.createGain();
+    o.type='sine';o.frequency.value=220;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.5,t+0.02);
+    g.gain.setValueAtTime(0.5,t+0.16);g.gain.exponentialRampToValueAtTime(0.0001,t+0.26);
+    o.connect(g);g.connect(vAC.destination);o.start(t);o.stop(t+0.3);}catch(e){}
+}
+/* Une phrase sans mot de commande (bavardage, numéro crié dans le public) est ignorée en silence. */
+function vLooksLikeCommand(alts){
+  return alts.some(a=>/\b(pour|par|contre|remplace|remplacee|entre|entree|rentre|sort|sortie|sors|dehors|minutes?|exclusion|rouge|bleu|carton|arret|pause|stop|jeu|reprendre|reprise|correction|corrige|annule)\b/.test(vnums(vcmdAlias(vnorm(a)))));
+}
 function handleVoice(alts){
   alts=(alts||[]).filter(a=>a&&a.trim());
   if(alts.length){const segs=vsegment(alts[0]);if(segs.length>1){segs.forEach(c=>handleVoice1([c]));return;}}
@@ -1574,6 +1626,8 @@ function handleVoice1(alts){
     if(view!=='match')showView('match');
     vexec(c);voiceFeedback(v.label,null,a);return;
   }
+  if(!vLooksLikeCommand(alts)){const el=$('voiceLast');if(el){el.className='vlast';el.innerHTML='Ignoré : « '+esc(alts[0])+' »';}return;}
+  vBeep();
   voiceFeedback(null,'« '+firstErr[0].trim()+' » : '+firstErr[1],null,alts);
 }
 /* Mots entendus qui pourraient être un nom mal transcrit (hors mots de commande et numéros) */
@@ -1591,11 +1645,11 @@ function openLearn(alts){
   if(!cands.length){toast('Aucun mot à associer dans cette phrase');return;}
   let phrase=cands[0];
   const R0=[...S.roster].sort((a,b)=>(+a.num||0)-(+b.num||0));
-  openDlg('<h4>Apprendre un mot</h4><p>Entendu : « '+esc(alts[0])+' ». Touche le mot mal compris, puis ce qu\'il voulait dire : un joueur ou une commande.</p>'+
+  openDlg('<h4>Apprendre un mot</h4><p>Entendu : « '+esc(alts[0])+' ». Touche le mot mal compris, puis ce qu\'il voulait dire'+(S.voiceNames?' : un joueur ou une commande':'')+'.</p>'+
     '<div class="lchips">'+cands.map((c,i)=>'<button class="btn lchip" data-c="'+i+'" aria-pressed="'+(i===0)+'">'+esc(c)+'</button>').join('')+'</div>'+
-    '<p class="lhead">Un joueur</p>'+
-    '<div class="lplayers">'+R0.map(p=>'<button class="btn" data-p="'+p.id+'"><b>'+esc(p.num)+'</b> '+esc(p.name)+'</button>').join('')+'</div>'+
-    '<p class="lhead">Une commande</p>'+
+    (S.voiceNames?'<p class="lhead">Un joueur</p>'+
+    '<div class="lplayers">'+R0.map(p=>'<button class="btn" data-p="'+p.id+'"><b>'+esc(p.num)+'</b> '+esc(p.name)+'</button>').join('')+'</div>':'')+
+    '<p class="lhead">'+(S.voiceNames?'Une commande':'La commande voulue')+'</p>'+
     '<div class="lplayers lcmds">'+VCMDS.map(c=>'<button class="btn" data-k="'+c[0]+'">'+esc(c[1])+'</button>').join('')+'</div>'+
     '<div class="btns"><button class="btn" data-close>Annuler</button></div>');
   $('dialog').classList.add('wide');
@@ -1660,8 +1714,9 @@ const CAP=window.Capacitor,NATIVE=!!(CAP&&CAP.isNativePlatform&&CAP.isNativePlat
 const NSP=NATIVE?(CAP.Plugins&&CAP.Plugins.TdjSpeech)||(CAP.registerPlugin&&CAP.registerPlugin('TdjSpeech')):null;
 let nListening=false,nPermOk=false,nRetry=null;
 function nContext(){
-  const w=['correction','entre','sort','remplacé par','2 minutes','deux minutes','exclusion','carton rouge','carton bleu','rouge','bleu','pause','arrêt','temps mort','jeu','reprendre','reprise','annule'];
-  const names=[];(S.roster||[]).forEach(p=>{if(p&&p.name){const n=String(p.name).trim().toLowerCase().replace(/(^|[\s-])\S/g,c=>c.toUpperCase());if(n)names.push(n);const last=n.split(/\s+/).pop();if(last&&last!==n)names.push(last);}});
+  const w=['pour','correction','entre','sort','remplacé par','2 minutes','deux minutes','exclusion','carton rouge','carton bleu','rouge','bleu','pause','arrêt','temps mort','jeu','reprendre','reprise','annule'];
+  const names=(S.roster||[]).map(p=>String(p.num||'')).filter(Boolean);
+  (S.voiceNames?S.roster||[]:[]).forEach(p=>{if(p&&p.name){const n=String(p.name).trim().toLowerCase().replace(/(^|[\s-])\S/g,c=>c.toUpperCase());if(n)names.push(n);const last=n.split(/\s+/).pop();if(last&&last!==n)names.push(last);}});
   return [...new Set(names.concat(w))].slice(0,100);
 }
 async function nStart(){
@@ -1673,7 +1728,7 @@ async function nStart(){
         openDlg('<h4>Micro non autorisé</h4><p>Autorise le micro et la reconnaissance vocale pour « Temps de jeu » dans Réglages › Confidentialité et sécurité (rubriques Microphone et Reconnaissance vocale).</p><div class="btns"><button class="btn primary" data-close>OK</button></div>');return;}
       nPermOk=true;}
     if(!voiceOn)return;
-    const r=await NSP.start({language:'fr-FR',contextualStrings:nContext(),silenceDelay:0.8,onDevice:true});
+    const r=await NSP.start({language:'fr-FR',contextualStrings:nContext(),silenceDelay:0.5,onDevice:true});
     nListening=!!(r&&r.listening);
     if(r&&r.route)$('micBtn').title='Micro : '+r.route;
   }catch(e){nListening=false;toast('🎤 '+((e&&e.message)||'Micro indisponible'));if(voiceOn)nRetry=setTimeout(nStart,2000);}
@@ -1683,7 +1738,8 @@ function nStop(){clearTimeout(nRetry);nListening=false;if(NSP)NSP.stop().catch((
 let nAwakeOn=null;
 function nAwake(){if(!NSP)return;const want=!!(voiceOn||(S.m&&S.m.running));if(want===nAwakeOn)return;nAwakeOn=want;NSP.setKeepAwake({enabled:want}).catch(()=>{});}
 if(NATIVE&&NSP){
-  NSP.addListener('utterance',e=>{if(voiceOn)handleVoice((e&&e.matches)||[]);});
+  NSP.addListener('partial',e=>{if(voiceOn&&e)vEarly(e.text||'',e.seg);});
+  NSP.addListener('utterance',e=>{if(voiceOn)vUtter((e&&e.matches)||[],e&&e.seg);});
   NSP.addListener('state',e=>{nListening=!!(e&&e.listening);
     if(!nListening&&voiceOn&&!document.hidden){clearTimeout(nRetry);nRetry=setTimeout(nStart,600);}});
   NSP.addListener('route',e=>{
@@ -1697,7 +1753,7 @@ if(NATIVE&&NSP){
 }
 let SRok=!NATIVE&&!!SRC&&!(navigator.standalone||matchMedia('(display-mode: standalone)').matches&&/iPhone|iPad|Macintosh/.test(navigator.userAgent));
 const mic=$('micBtn');
-mic.addEventListener('click',()=>setVoice(!voiceOn));
+mic.addEventListener('click',()=>{vAudioUnlock();setVoice(!voiceOn);});
 mic.addEventListener('contextmenu',e=>e.preventDefault());
 /* Reprise après rechargement : réactivé au premier toucher (iOS exige un geste) */
 if(S.voiceOn){micState(true);voiceOn=true;
@@ -1739,8 +1795,8 @@ function vAliasHtml(){
   const L=[];S.roster.forEach(p=>(p.alias||[]).forEach((a,i)=>L.push('<span class="achip">« '+esc(a)+' » → #'+esc(p.num)+' '+esc(p.name)+' <button type="button" aria-label="Oublier" data-ap="'+p.id+'" data-ai="'+i+'">✕</button></span>')));
   const C=(S.vcmd||[]).map((a,i)=>{const c=VCMDS.find(x=>x[0]===a.k);return '<span class="achip">« '+esc(a.w)+' » → '+esc(c?c[1]:a.k)+' <button type="button" aria-label="Oublier" data-ci="'+i+'">✕</button></span>';});
   return '<p><b>Mots appris</b> : si un mot est mal compris, touche « Apprendre » après la commande ratée pour l\'associer à un joueur ou à une commande.</p>'+
-    '<p class="lhead">Noms de joueurs (équipe en cours)</p>'+
-    (L.length?'<div class="achips" id="achips">'+L.join('')+'</div>':'<p class="hint-p">Aucun.</p>')+
+    (S.voiceNames||L.length?'<p class="lhead">Noms de joueurs (équipe en cours)</p>':'')+
+    (!S.voiceNames&&!L.length?'':L.length?'<div class="achips" id="achips">'+L.join('')+'</div>':'<p class="hint-p">Aucun.</p>')+
     '<p class="lhead">Commandes (toutes les équipes)</p>'+
     (C.length?'<div class="achips" id="cchips">'+C.join('')+'</div>':'<p class="hint-p">Aucune.</p>');
 }
@@ -2085,7 +2141,7 @@ document.addEventListener('visibilitychange',()=>{commit();save();if(!document.h
 window.addEventListener('pagehide',()=>{commit();save();});
 
 commit();renderAll();
-window.__tdj={ph:t=>vphon(t),seg:t=>vsegment(t),S:()=>S,buildReport:()=>buildReport(),voice:a=>handleVoice(a),vparse:t=>vparse(t)};
+window.__tdj={beeps:()=>vBeep.n||0,ph:t=>vphon(t),seg:t=>vsegment(t),S:()=>S,buildReport:()=>buildReport(),voice:a=>handleVoice(a),vparse:t=>vparse(t)};
 if(!NATIVE&&'serviceWorker' in navigator&&!/claude/.test(location.hostname)&&(location.protocol==='https:'||location.hostname==='localhost')){
   navigator.serviceWorker.register('sw.js').then(reg=>{
     reg.addEventListener('updatefound',()=>{const w=reg.installing;if(!w)return;
@@ -2116,15 +2172,20 @@ function renderHelp(){
   document.querySelectorAll('#view-help [data-h]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.h===helpTab)));
   $('helpBody').innerHTML=helpTab==='voice'?helpVoiceHtml():helpGuideHtml();
   vAliasBind();
+  const vn=$('vNamesOpt');if(vn)vn.onchange=()=>{S.voiceNames=vn.checked;save();renderHelp();if(NATIVE&&NSP&&voiceOn)NSP.setContext({contextualStrings:nContext()}).catch(()=>{});};
   const g=$('helpBody').querySelector('[data-goto]');if(g)g.onclick=()=>{helpTab=g.dataset.goto;renderHelp();document.querySelector('main').scrollTop=0;};
 }
 document.querySelectorAll('#view-help [data-h]').forEach(b=>b.onclick=()=>{helpTab=b.dataset.h;renderHelp();});
 function helpVoiceHtml(){
   const rows=VHELP.map(g=>'<tr><th colspan="3">'+esc(g[0])+'</th></tr>'+g[1].map(r=>
     '<tr><td><span class="say">'+esc(r[0])+'</span></td><td>'+esc(r[1])+'</td><td>'+esc(r[2])+'</td></tr>').join('')).join('');
-  return '<table class="vtab"><tbody>'+rows+'</tbody></table>'+
+  return '<label class="ckrow vnames"><input type="checkbox" id="vNamesOpt"'+(S.voiceNames?' checked':'')+'><span><b>Reconnaître aussi les noms de joueurs</b><small>'+
+     (S.voiceNames?'Activé : « Dupont pour Martin » fonctionne, mais plus de risques d\'erreur dans le bruit.':'Désactivé : numéros seulement, plus fiable et plus rapide en tribune (conseillé).')+'</small></span></label>'+
+    '<table class="vtab"><tbody>'+rows+'</tbody></table>'+
    '<div class="vnote">'+
-   '<div>🔢 <span><b>Numéro ou nom de famille</b> : « 9 pour 7 » ou « Dupont pour Martin ».</span></div>'+
+   '<div>🔢 <span><b>Numéros des joueurs</b> : « 9 pour 7 »'+(S.voiceNames?', ou nom de famille : « Dupont pour Martin »':'')+'.</span></div>'+
+   '<div>⚡ <span><b>Exécution immédiate</b> (app iOS) : la commande part dès le dernier mot, sans attendre la pause.</span></div>'+
+   '<div>🔉 <span><b>Bip grave</b> dans le casque : commande entendue mais pas comprise, rien n\'a été fait. Une phrase sans mot de commande (bavardage, numéro isolé) est ignorée en silence.</span></div>'+
    '<div>➡️ <span><b>Sortant d\'abord</b>, puis entrant.</span></div>'+
    '<div>⛓️ <span><b>Enchaîner</b> est possible : « 9 pour 7, 2 minutes 5 ».</span></div>'+
    '<div>🛡️ <span>Commande <b>incohérente</b> (joueur déjà en jeu…) : ignorée et signalée, rien n\'est modifié.</span></div>'+
@@ -2151,7 +2212,7 @@ function helpGuideHtml(){
   C(6,'Corriger une erreur',hB('↶','sm')+'<span>ou</span><span class="hx-bub">correction</span>',
     ['<b>↶</b> annule la dernière action.','Plusieurs fois de suite si besoin.'])+
   C(7,'Commande vocale',hB('🎤 Vocal','hmic')+hA+'<span class="hx-bub">9 pour 7</span>',
-    ['<b>VOCAL</b> : l\'écoute reste active jusqu\'à ce que tu la coupes.','Casque Bluetooth : connecte-le <b>avant</b>.','<button class="btn" data-goto="voice" style="height:36px;font-size:13px">Voir toutes les commandes</button>'])+
+    ['<b>VOCAL</b> : l\'écoute reste active jusqu\'à ce que tu la coupes.','Casque Bluetooth : connecte-le <b>avant</b>.','<b>Bip grave</b> = pas compris, rien n\'a été fait.','<button class="btn" data-goto="voice" style="height:36px;font-size:13px">Voir toutes les commandes</button>'])+
   C(8,'Temps de jeu et exports',hB('Temps de jeu','sm')+hA+hB('Export Dartfish','hgo sm')+hB('PDF','sm'),
     ['Onglet <b>TEMPS DE JEU</b> : temps par joueur et par période.','<b>Export Dartfish</b> : CSV à importer dans Dartfish.','<b>RAPPORT PDF</b> : envoi WhatsApp à tout moment.'])+
   C(9,'Fin du match',hB('Fin 2e MT','sm')+hA+hB('✓ Match terminé','hgo sm'),
@@ -2163,6 +2224,9 @@ function helpGuideHtml(){
 document.addEventListener('click',e=>{if(e.target&&e.target.id==='hNews'){e.preventDefault();openNews(null);}});
 /* ---------- Nouveautés : affichées au premier lancement après une mise à jour ---------- */
 const CHANGELOG=[
+  ['1.10.0','13 nov. 2026',['Commande vocale « numéros seulement » par défaut : plus fiable dans le bruit (les noms restent activables dans l\'Aide).',
+    'App iOS : la commande s\'exécute dès le dernier mot prononcé, sans attendre la pause.',
+    'Bip grave dans le casque quand une commande est entendue mais pas comprise ; le bavardage autour est ignoré en silence.']],
   ['1.9.0','11 nov. 2026',['Nouvel onglet « ? Aide » : tableau des commandes vocales et mode d\'emploi illustré, mis à jour avec l\'app.']],
   ['1.8.0','11 nov. 2026',['Bouton du chrono : « ARRÊT » et « JEU » remplacent « PAUSE » et « REPRENDRE ». À la voix : « arrêt » et « jeu ».',
     '« Apprendre » associe un mot mal compris à un joueur OU à une commande (ex. « jouez » → Jeu).',
