@@ -232,7 +232,7 @@ h3.sec{font-family:var(--display);font-weight:400;font-size:22px;text-transform:
 /* ---------- Effectif ---------- */
 .notice{background:rgba(217,250,122,.1);border:1px solid rgba(217,250,122,.5);border-radius:12px;padding:12px 14px;margin-bottom:16px;font-size:14px}
 .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:8px}
-label.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted);font-weight:600}
+label.f,div.f{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted);font-weight:600}
 input,select,textarea{font:inherit;color:var(--text);background:var(--navy);border:1px solid var(--line);border-radius:10px;height:48px;padding:0 12px;font-size:16px}
 textarea{height:auto;padding:10px 12px;min-height:120px;width:100%;resize:vertical;font-size:13px}
 .team-pick{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px;
@@ -315,6 +315,8 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
   nav.tabs .qm{width:24px;height:24px;font-size:15px}
   .hseg .btn{font-size:14px;height:46px}
 }
+.vclock{min-height:48px;display:flex;flex-direction:column;justify-content:center;font-size:14px;line-height:1.4;color:var(--muted)}
+.vclock b{color:var(--text,#fff)}
 .lhead{margin:12px 0 4px;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 .lcmds .btn{justify-content:center}
 .news h5{margin:14px 0 4px;font-size:15px}
@@ -620,6 +622,14 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
         <select id="optMax"><option value="7">7 (GB + 6)</option><option value="6">6</option><option value="5">5</option><option value="4">4 (beach)</option></select>
       </label>
     </div>
+    <h3 class="sec">Vidéo · export Dartfish</h3>
+    <div class="form-grid">
+      <label class="f" for="optVMode">Mode vidéo (mémorisé d'un match à l'autre)
+        <select id="optVMode"><option value="continue">Vidéo continue (mi-temps comprise)</option><option value="periode">Une vidéo par période</option></select>
+      </label>
+      <div class="f"><span>Chrono vidéo</span><div class="vclock" id="vClockInfo"></div></div>
+    </div>
+    <div class="row-actions"><button class="btn" id="vReset">Réinitialiser le chrono vidéo…</button></div>
     <h3 class="sec">Effectif · <span id="teamName"></span> <span class="saved">enregistré automatiquement sur cet iPad</span></h3>
     <div class="roster" id="roster"></div>
     <div class="row-actions">
@@ -659,7 +669,7 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.10.0';
+const APP_VERSION='1.11.0';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -677,7 +687,7 @@ function newMatch(prev){
   return {opp:prev?prev.opp:'',date:new Date().toISOString().slice(0,10),
     periodMin:prev?prev.periodMin:30,otMin:prev?prev.otMin:5,maxOn:prev?prev.maxOn:7,
     id:'m'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
-    period:0,el:[0,0,0,0],running:false,live:false,kick:null,vOff:0,last:Date.now(),on:[],excl:[],st:{},log:[]};
+    period:0,el:[0,0,0,0],running:false,live:false,kick:null,vStart:null,vStarts:[null,null,null,null],vSrc:'local',last:Date.now(),on:[],excl:[],st:{},log:[]};
 }
 let S=null;
 try{const raw=localStorage.getItem(KEY); if(raw) S=JSON.parse(raw);}catch(e){}
@@ -686,7 +696,23 @@ if(!S.teams){S.teams=[{id:'t1',name:S.example?'Équipe exemple':'Mon équipe',ro
   periodMin:S.m.periodMin,otMin:S.m.otMin,maxOn:S.m.maxOn}];S.teamId='t1';S.tseq=1;delete S.example;}
 function T(){return S.teams.find(t=>t.id===S.teamId)||S.teams[0];}
 S.teamId=T().id;S.roster=T().roster;
-if(S.m.live===undefined){S.m.live=false;S.m.kick=null;S.m.vOff=0;}
+if(S.m.live===undefined){S.m.live=false;S.m.kick=null;}
+/* ---------- Chrono vidéo ----------
+   videoStart (vStart) = heure système du PREMIER démarrage du chrono de match : coup d'envoi dans la vidéo.
+   Il ne s'arrête jamais (ni arrêts, ni mi-temps, ni périodes) et n'est remis à zéro que par le réglage
+   « Réinitialiser le chrono vidéo ». vStarts[p] = premier démarrage dans chaque période (mode « une vidéo par période »).
+   Position (CSV Dartfish) = instant du tag − repère, calculée à l'export. vSrc : 'local' ou 'TL' (repris de Taguage Live, à venir). */
+function vMigrate(m){
+  if(!m)return m;
+  if(!Array.isArray(m.vStarts)){m.vStarts=[null,null,null,null];
+    (m.log||[]).forEach(l=>{if(l.t==='start'&&l.w!=null&&m.vStarts[l.p]==null)m.vStarts[l.p]=l.w;});}
+  if(m.vStart===undefined)m.vStart=m.kick!=null?m.kick:(m.vStarts.find(x=>x!=null)??null);
+  if(!m.vSrc)m.vSrc='local';
+  delete m.vOff;
+  return m;
+}
+vMigrate(S.m);
+if(!S.videoMode)S.videoMode='continue';
 if(!S.m.id)S.m.id='m'+Date.now().toString(36);
 if(!S.history)S.history=[];
 let VIEW=null, pick=null;
@@ -805,6 +831,9 @@ function toggleClock(){
   m.running=!m.running;m.last=Date.now();undo=[];
   if(m.running){
     if(m.kick==null)m.kick=m.last;
+    /* repères vidéo : posés une seule fois, sauvegardés juste après (save() ci-dessous) */
+    if(m.vStart==null)m.vStart=m.last;
+    if(m.vStarts[m.period]==null)m.vStarts[m.period]=m.last;
     m.live=true;logEv('start');
     if(m.on.length===0)toast('Le chrono tourne mais personne n\'est sur le terrain');
   }else logEv('stop');
@@ -828,7 +857,11 @@ function adjustClock(deltaMs){
 }
 function doUndo(){
   if(!undo.length)return;
-  S.m=JSON.parse(undo.pop());
+  /* le chrono vidéo ne recule jamais avec « annuler » */
+  const keep={vStart:S.m.vStart,vStarts:(S.m.vStarts||[]).slice(),kick:S.m.kick};
+  S.m=vMigrate(JSON.parse(undo.pop()));
+  if(keep.vStart!=null){S.m.vStart=keep.vStart;S.m.kick=keep.kick;}
+  keep.vStarts.forEach((v,i)=>{if(v!=null)S.m.vStarts[i]=v;});
   commit();sel=null;save();renderAll();
 }
 
@@ -1104,17 +1137,19 @@ function statsCsv(){
 /* Dartfish : un événement par présence sur le terrain (Position/Duration en ms, temps réel
    depuis le coup d'envoi + décalage vidéo), plus les changements, exclusions et fins de période. */
 function hhmmss(w){const d=new Date(w);return [d.getHours(),d.getMinutes(),d.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':');}
-function dartfishCsv(offMs){
-  const m=M();if(m.kick==null)return null;
-  const pos=w=>Math.max(0,Math.round(w-m.kick+offMs));
+const PCODE=['MT1','MT2','PROL1','PROL2'];
+const PCSV=['1','2','P1','P2'];
+/* Lignes Dartfish : un passage par joueur sur le terrain (« Présence terrain ») + points (durée 0). w = heure de l'événement. */
+function dartfishRows(m){
   const rows=[],open={},on=new Set();let live=false,lastStop=null;
   const pl=id=>PV(id)||{num:'',name:'?',pos:''};
+  const lab=p=>(p.num!==''&&p.num!=null?p.num+'.':'')+(p.name||'');
   const openS=(id,l)=>{open[id]={w:l.w,p:l.p,c:l.c};};
   const closeS=(id,w)=>{const o=open[id];if(!o)return;delete open[id];const p=pl(id);
-    rows.push({name:'#'+p.num+' '+p.name,w:o.w,dur:Math.max(1000,w-o.w),cat:'Présence terrain',j:p.name,n:p.num,pos:p.pos,out:'',per:PERIODS[o.p],c:fmtClock(o.c)});};
+    rows.push({name:lab(p),w:o.w,dur:Math.max(1000,w-o.w),cat:'Présence terrain',j:lab(p),pos:p.pos,out:'',p:o.p,c:fmtClock(o.c)});};
   const point=(name,l,id,id2)=>{const p=id?pl(id):null,o=id2?pl(id2):null;
-    rows.push({name,w:l.w-5000,dur:10000,cat:name,j:p?p.name:'',n:p?p.num:'',pos:p?p.pos:'',out:o?'#'+o.num+' '+o.name:'',per:PERIODS[l.p],c:fmtClock(l.c)});};
-  m.log.forEach(l=>{
+    rows.push({name,w:l.w,dur:0,cat:name,j:p?lab(p):'',pos:p?p.pos:'',out:o?lab(o):'',p:l.p,c:fmtClock(l.c)});};
+  (m.log||[]).forEach(l=>{
     if(l.w==null)return;
     switch(l.t){
       case 'start':if(!live){live=true;on.forEach(id=>openS(id,l));}lastStop=null;break;
@@ -1132,11 +1167,26 @@ function dartfishCsv(offMs){
   const endW=m.running?Date.now():(lastStop||Date.now());
   Object.keys(open).forEach(id=>closeS(id,endW));
   rows.sort((a,b)=>a.w-b.w);
-  const qc=v=>{v=String(v==null?'':v);return /[,"\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
-  let c='\ufeffNom,Position,Durée:,catégorie,joueur,numéro,poste,sortant,période,chrono,heure\n';
-  rows.forEach(r=>{c+=[qc(r.name),pos(r.w),Math.round(r.dur),qc(r.cat),qc(r.j),qc(r.n),qc(r.pos),qc(r.out),qc(r.per),qc(r.c),hhmmss(r.w)].join(',')+'\n';});
-  return c;
+  return rows;
 }
+/* Format de référence (claude/format-csv-dartfish.md) : UTF-8 avec BOM, CRLF, virgule, temps en ms entiers. */
+function dartfishText(rows,ref){
+  const qc=v=>{v=String(v==null?'':v);return /[,"\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
+  const L=['Nom,Position,Durée:,catégorie,joueur,sortant,poste,période,chrono,heure,Description,$$Color'];
+  rows.forEach(r=>L.push([qc(r.name),Math.max(0,Math.round(r.w-ref)),Math.round(r.dur),qc(r.cat),qc(r.j),qc(r.out),qc(r.pos),qc(PCSV[r.p]),qc(r.c),hhmmss(r.w),'',''].join(',')));
+  return '﻿'+L.join('\r\n')+'\r\n';
+}
+/* mode 'continue' : [{suffix:'',csv}] ; mode 'periode' : un fichier par période jouée */
+function dartfishFiles(m,mode){
+  vMigrate(m);if(m.vStart==null)return [];
+  const rows=dartfishRows(m);
+  if(mode!=='periode')return [{suffix:'',csv:dartfishText(rows,m.vStart),ref:m.vStart,p:null}];
+  const out=[];
+  m.vStarts.forEach((ref,p)=>{if(ref==null)return;
+    out.push({suffix:'_'+PCODE[p],csv:dartfishText(rows.filter(r=>r.p===p),ref),ref,p});});
+  return out;
+}
+function dartfishCsv(){const f=dartfishFiles(M(),'continue');return f.length?f[0].csv:null;}
 function parseOff(s){
   s=String(s||'').trim();if(!s)return 0;
   const parts=s.split(':').map(x=>parseFloat(x.replace(',','.')));
@@ -1199,19 +1249,33 @@ $('copyBtn').addEventListener('click',()=>{
 });
 $('csvBtn').addEventListener('click',()=>offerFile('temps-de-jeu-'+fileBase()+'.csv',statsCsv(),'Stats CSV'));
 $('dfBtn').addEventListener('click',()=>{
-  const m=M();
-  if(m.kick==null){toast('Lance le chrono au coup d\'envoi pour pouvoir exporter vers Dartfish');return;}
+  const m=vMigrate(M()),mode=S.videoMode;
+  if(m.vStart==null){toast('Lance le chrono au coup d\'envoi pour pouvoir exporter vers Dartfish');return;}
+  const files=dartfishFiles(m,mode);
+  const refTxt=mode==='periode'
+    ?files.map(f=>'<li><b>'+PCODE[f.p]+'</b> : coup d\'envoi à '+hhmmss(f.ref)+'</li>').join('')
+    :'<li>Coup d\'envoi à <b>'+hhmmss(m.vStart)+'</b> ('+PERIODS[m.vStarts.findIndex(x=>x===m.vStart)>=0?m.vStarts.findIndex(x=>x===m.vStart):0]+')</li>';
   openDlg('<h4>Export Dartfish</h4>'+
-    '<p>Un événement par passage de chaque joueur sur le terrain (catégorie « Présence terrain »), plus les changements, exclusions et fins de période. Position et Duration sont en millisecondes de temps réel, mesurées depuis le coup d\'envoi ('+hhmmss(m.kick)+').</p>'+
-    '<label class="f" for="vOff">Coup d\'envoi dans la vidéo (min:s ou h:min:s)<input id="vOff" inputmode="numeric" value="'+esc(fmtOff(m.vOff||0))+'"></label>'+
-    '<p>Dans Dartfish : liste d\'événements › Importer › choisis ce fichier, séparateur virgule, première ligne = en-têtes, puis associe Position, Durée et Nom. Laisse 0:00 si tu préfères décaler les événements dans Dartfish.</p>'+
-    '<div class="btns"><button class="btn" data-close>Annuler</button><button class="btn" id="dfCopy">Copier</button><button class="btn primary" id="dfSave">Télécharger le CSV</button></div>');
-  const get=()=>{const v=parseOff($('vOff').value);if(v==null){toast('Décalage invalide : écris par ex. 2:35');return null;}
-    m.vOff=v;save();return dartfishCsv(v);};
-  $('dfSave').onclick=()=>{const c=get();if(c==null)return;closeDlg();offerFile('dartfish-'+fileBase()+'.csv',c,'CSV Dartfish');};
-  $('dfCopy').onclick=()=>{const c=get();if(c==null)return;
+    '<p>Mode vidéo : <b>'+(mode==='periode'?'une vidéo par période ('+files.length+' fichier'+(files.length>1?'s':'')+')':'vidéo continue (1 fichier)')+'</b>. Position = temps réel depuis le coup d\'envoi, en millisecondes.</p>'+
+    '<ul>'+refTxt+'</ul>'+
+    '<p>Dans Dartfish, importe '+(mode==='periode'?'chaque fichier sur la vidéo de sa période':'le fichier')+' <b>à partir du coup d\'envoi</b>. Le chrono de match est dans la colonne « chrono ».</p>'+
+    '<div class="btns"><button class="btn" data-close>Annuler</button>'+(files.length===1?'<button class="btn" id="dfCopy">Copier</button>':'')+'<button class="btn primary" id="dfSave">'+(files.length>1?'Exporter les '+files.length+' fichiers':'Exporter le CSV')+'</button></div>');
+  $('dfSave').onclick=()=>{closeDlg();offerFiles(files.map(f=>({name:'dartfish-'+fileBase()+f.suffix+'.csv',data:f.csv})),'CSV Dartfish');};
+  if($('dfCopy'))$('dfCopy').onclick=()=>{const c=files[0].csv;
     try{navigator.clipboard.writeText(c).then(()=>{closeDlg();toast('CSV Dartfish copié');},()=>showTextDlg('CSV Dartfish',c));}catch(e){showTextDlg('CSV Dartfish',c);}};
 });
+/* Plusieurs fichiers : une seule feuille de partage sur iOS ; sinon un téléchargement par fichier. */
+async function offerFiles(list,title){
+  if(list.length===1){offerFile(list[0].name,list[0].data,title);return;}
+  if(NATIVE&&CAP.Plugins.Filesystem&&CAP.Plugins.Share){
+    try{const FS=CAP.Plugins.Filesystem,uris=[];
+      for(const f of list){const w=await FS.writeFile({path:f.name.replace(/[\\/:*?"<>|]/g,'-'),data:await blobToB64(new Blob([f.data],{type:'text/csv'})),directory:'CACHE'});uris.push(w.uri);}
+      await CAP.Plugins.Share.share({title,files:uris,dialogTitle:title});toast(list.length+' fichiers partagés');
+    }catch(e){const m=String((e&&e.message)||e);if(!/cancel|annul/i.test(m))toast('Partage impossible : '+m);}
+    return;
+  }
+  for(const f of list){offerFile(f.name,f.data,title);await new Promise(r=>setTimeout(r,700));}
+}
 
 /* ---------- Rapport PDF à l'instant T ---------- */
 const PDFA={};
@@ -1939,8 +2003,22 @@ function nameDlg(title,value,okLabel,fn){
   $('nameOk').onclick=ok;inp.addEventListener('keydown',e=>{if(e.key==='Enter')ok();});
 }
 function cloneRoster(r){return r.map(p=>{const o={id:'p'+(++S.seq),num:p.num,name:p.name,pos:p.pos};if(p.alias&&p.alias.length)o.alias=p.alias.slice();return o;});}
+function renderVideoOpts(){
+  const m=vMigrate(S.m);$('optVMode').value=S.videoMode;
+  const L=[];
+  if(m.vStart==null)L.push('Pas encore démarré : il partira au premier « DÉMARRER » (coup d\'envoi).');
+  else{L.push('Coup d\'envoi vidéo : <b>'+hhmmss(m.vStart)+'</b> · ne s\'arrête jamais');
+    if(S.videoMode==='periode')m.vStarts.forEach((v,p)=>{if(v!=null)L.push(PCODE[p]+' : '+hhmmss(v));});}
+  $('vClockInfo').innerHTML=L.map(x=>'<div>'+x+'</div>').join('');
+}
+$('optVMode').addEventListener('change',()=>{S.videoMode=$('optVMode').value;save();renderVideoOpts();});
+$('vReset').addEventListener('click',()=>{
+  if(S.m.vStart==null){toast('Le chrono vidéo n\'est pas encore démarré');return;}
+  confirmDlg('Réinitialiser le chrono vidéo ?','Le repère du coup d\'envoi ('+hhmmss(S.m.vStart)+') sera effacé, et le prochain « DÉMARRER » en créera un nouveau. Action rare, à n\'utiliser qu\'en cas d\'erreur.','Réinitialiser',()=>{
+    S.m.vStart=null;S.m.vStarts=[null,null,null,null];S.m.vSrc='local';save();renderVideoOpts();toast('Chrono vidéo réinitialisé');});
+});
 function renderRoster(){
-  const m=S.m;
+  const m=S.m;renderVideoOpts();
   renderTeams();
   $('exampleNotice').hidden=!T().example;
   $('optOpp').value=m.opp||'';$('optDate').value=m.date||'';
@@ -2214,7 +2292,7 @@ function helpGuideHtml(){
   C(7,'Commande vocale',hB('🎤 Vocal','hmic')+hA+'<span class="hx-bub">9 pour 7</span>',
     ['<b>VOCAL</b> : l\'écoute reste active jusqu\'à ce que tu la coupes.','Casque Bluetooth : connecte-le <b>avant</b>.','<b>Bip grave</b> = pas compris, rien n\'a été fait.','<button class="btn" data-goto="voice" style="height:36px;font-size:13px">Voir toutes les commandes</button>'])+
   C(8,'Temps de jeu et exports',hB('Temps de jeu','sm')+hA+hB('Export Dartfish','hgo sm')+hB('PDF','sm'),
-    ['Onglet <b>TEMPS DE JEU</b> : temps par joueur et par période.','<b>Export Dartfish</b> : CSV à importer dans Dartfish.','<b>RAPPORT PDF</b> : envoi WhatsApp à tout moment.'])+
+    ['Onglet <b>TEMPS DE JEU</b> : temps par joueur et par période.','<b>Export Dartfish</b> : CSV à importer dans Dartfish <b>à partir du coup d\'envoi</b> (chrono vidéo démarré au 1er DÉMARRER, jamais arrêté).','Vidéo coupée par période ? <b>Effectif › Mode vidéo</b>.','<b>RAPPORT PDF</b> : envoi WhatsApp à tout moment.'])+
   C(9,'Fin du match',hB('Fin 2e MT','sm')+hA+hB('✓ Match terminé','hgo sm'),
     ['Fin de la 2e période : match <b>enregistré automatiquement</b>.','<b>Historique des matchs</b> (Temps de jeu) : revoir, exporter, supprimer.','<b>Nouveau match</b> : onglet Effectif.'])+
   C(10,'Sauvegarder et partager',hB('Exporter des effectifs','sm')+hB('Importer','sm'),
@@ -2224,6 +2302,10 @@ function helpGuideHtml(){
 document.addEventListener('click',e=>{if(e.target&&e.target.id==='hNews'){e.preventDefault();openNews(null);}});
 /* ---------- Nouveautés : affichées au premier lancement après une mise à jour ---------- */
 const CHANGELOG=[
+  ['1.11.0','16 nov. 2026',['Chrono vidéo : démarre au premier DÉMARRER et ne s\'arrête jamais. Position Dartfish = temps réel depuis le coup d\'envoi, sans décalage à saisir.',
+    'Réglage « Mode vidéo » (Effectif) : vidéo continue ou une vidéo par période (un CSV par période).',
+    'CSV Dartfish au format de référence : CRLF, joueurs « 7.Dupont », colonnes Description et $$Color, changements et sanctions à l\'instant exact.',
+    '« Réinitialiser le chrono vidéo » dans Effectif, en cas d\'erreur.']],
   ['1.10.0','13 nov. 2026',['Commande vocale « numéros seulement » par défaut : plus fiable dans le bruit (les noms restent activables dans l\'Aide).',
     'App iOS : la commande s\'exécute dès le dernier mot prononcé, sans attendre la pause.',
     'Bip grave dans le casque quand une commande est entendue mais pas comprise ; le bavardage autour est ignoré en silence.']],
