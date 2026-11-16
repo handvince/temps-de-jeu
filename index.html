@@ -317,6 +317,16 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
 }
 .vclock{min-height:48px;display:flex;flex-direction:column;justify-content:center;font-size:14px;line-height:1.4;color:var(--muted)}
 .vclock b{color:var(--text,#fff)}
+.link-btn{margin-left:8px;height:34px;padding:0 10px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:inherit;display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600}
+.link-btn b{background:var(--accent);color:var(--navy);border-radius:999px;padding:0 6px;font-size:11px}.link-btn b:empty{display:none}
+.ldot{width:12px;height:12px;border-radius:50%;background:#8a8fa8;flex:none;display:inline-block}
+[data-c=vert] .ldot,.ldot[data-c=vert]{background:#2ecc71;box-shadow:0 0 8px #2ecc71}
+[data-c=orange] .ldot,.ldot[data-c=orange]{background:#ffa726}
+[data-c=rouge] .ldot,.ldot[data-c=rouge]{background:var(--red)}
+.lstat{display:flex;align-items:center;gap:10px;font-weight:600}
+.lpeers{display:grid;gap:8px;margin:6px 0 10px}.lpeer{height:52px;justify-content:flex-start}.lpeer.cur{border-color:var(--accent)}
+.excl-btn:disabled{opacity:.35;filter:grayscale(1)}
+@media (max-width:600px){.link-btn .lbl{display:none}.link-btn{height:30px;padding:0 8px;margin-left:4px}}
 .lhead{margin:12px 0 4px;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 .lcmds .btn{justify-content:center}
 .news h5{margin:14px 0 4px;font-size:15px}
@@ -533,6 +543,7 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
         <button class="icon-btn" id="prevP" aria-label="Période précédente">◀</button>
         <span class="label" id="periodLabel">1re MT</span>
         <button class="icon-btn" id="nextP" aria-label="Période suivante">▶</button>
+        <button class="link-btn" id="linkBtn" hidden data-c="gris" aria-label="Liaison avec Taguage live"><span class="ldot"></span><span class="lbl" id="linkLbl">Relier</span><b id="linkN"></b></button>
       </div>
     </div>
   </div>
@@ -669,7 +680,7 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.11.1';
+const APP_VERSION='1.12.0';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -821,6 +832,7 @@ function slotLabel(e,p){
 function doDismissExcl(id){act(()=>{S.m.excl=S.m.excl.filter(e=>e.id!==id);});}
 
 function toggleClock(){
+  if(typeof linked==='function'&&linked()){toast('Chrono piloté par Taguage live pendant la liaison');return;}
   commit();
   const m=S.m;
   if(m.finished&&!m.running){showEndDlg();return;}
@@ -840,6 +852,7 @@ function toggleClock(){
   save();renderHeader();updateTimes();
 }
 function changePeriod(dir){
+  if(typeof linked==='function'&&linked()){toast('Période pilotée par Taguage live pendant la liaison');return;}
   commit();
   const m=S.m;if(m.running)return;
   const p=m.period+dir;if(p<0||p>3)return;
@@ -848,6 +861,7 @@ function changePeriod(dir){
   hideToast();save();renderAll();
 }
 function adjustClock(deltaMs){
+  if(typeof linked==='function'&&linked()){toast('Chrono piloté par Taguage live pendant la liaison');return;}
   commit();
   const m=S.m;if(m.running)return;
   let d=deltaMs;
@@ -872,7 +886,7 @@ function renderHeader(){
   $('periodLabel').textContent=m.finished?'TERMINÉ':PERIODS[m.period];
   $('prevP').disabled=m.running||m.period===0;
   $('nextP').disabled=m.running||m.period===3;
-  const go=$('goBtn');go.textContent=m.running?'ARRÊT':(m.finished?'FIN DU MATCH':(gameMs()===0?'DÉMARRER':'JEU'));
+  const go=$('goBtn');go.textContent=m.running?'PAUSE':(m.finished?'FIN DU MATCH':(gameMs()===0?'DÉMARRER':'JEU'));
   go.classList.toggle('done',!!m.finished&&!m.running);
   go.classList.toggle('running',m.running);
   $('clock').classList.toggle('paused',!m.running);
@@ -1161,7 +1175,7 @@ function dartfishRows(m){
       case 'sub':on.delete(l.id2);closeS(l.id2,l.w);on.add(l.id);if(live)openS(l.id,l);point('Changement',l,l.id,l.id2);break;
       case '2min':case 'red':case 'blue':
         if(on.has(l.id)){on.delete(l.id);closeS(l.id,l.w);}
-        point({'2min':'2 min',red:'Carton rouge',blue:'Carton bleu'}[l.t],l,l.id);break;
+        if(l.src!=='TL')point({'2min':'2 min',red:'Carton rouge',blue:'Carton bleu'}[l.t],l,l.id);break;
     }
   });
   const endW=m.running?Date.now():(lastStop||Date.now());
@@ -1438,7 +1452,7 @@ function vphon(w){
 }
 /* Mots appris pour une commande (« jouez » → jeu…) : remplacés par le mot de commande avant l'analyse. */
 const VCMDS=[['in','Entrée','entre'],['out','Sortie','sort'],['for','Changement','pour'],['2min','2 minutes','2 minutes'],
-  ['red','Carton rouge','rouge'],['blue','Carton bleu','bleu'],['pause','Arrêt du chrono','arret'],['start','Jeu (relance)','jeu'],['undo','Correction','correction']];
+  ['red','Carton rouge','rouge'],['blue','Carton bleu','bleu'],['pause','Pause du chrono','pause'],['start','Jeu (relance)','jeu'],['undo','Correction','correction']];
 function vcmdAlias(t){
   const L=S.vcmd||[];if(!L.length)return t;
   L.forEach(a=>{const ph=vnorm(a.w),c=VCMDS.find(x=>x[0]===a.k);if(!ph||!c)return;
@@ -1447,7 +1461,7 @@ function vcmdAlias(t){
 }
 function vlev(a,b){const d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]===b[j-1]?0:1));p=t;}}return d[b.length];}
 const VKW=new Set(('pour par contre sur remplace remplacee a la place de entre entree rentre sort sortie sors in out dehors minute minutes min mn '+
-  'exclusion exclu exclue carton rouge bleu disqualification disqualifie pause stop stoppe stopper arret arrete arreter arretez temps mort '+
+  'exclusion exclu exclue carton rouge bleu disqualification disqualifie pause stop stoppe stopper temps mort '+
   'jeu reprise reprendre reprend reprends reprenez reprenons go top demarre demarrer demarrez demarrage relance relancer lance lancer c est parti start '+
   'annule annuler annulation correction corrige corriger oups retour on le les l et puis numero joueur ok alors').split(' '));
 let vIdx=null,vIdxKey='';
@@ -1509,7 +1523,7 @@ function vplayer(tok){
 }
 const VKEY=[
   ['undo',/\b(annule|annuler|annulation|correction|corrige|corriger|oups|retour)\b/],
-  ['pause',/\b(pause|stop|stoppe|stopper|arret|arrete|arreter|arretez|temps mort)\b/],
+  ['pause',/\b(pause|stop|stoppe|stopper|temps mort)\b/],
   ['start',/\b(jeu|reprise|reprendre|reprend|reprends|reprenez|reprenons|go|top|demarre|demarrer|demarrez|demarrage|relance|relancer|lance|lancer|c est parti|start)\b/],
   ['blue',/\b(carton bleu|bleu)\b/],
   ['red',/\b(carton rouge|rouge|disqualification|disqualifie)\b/],
@@ -1555,7 +1569,10 @@ function vcheck(c){
   const lab=p=>'#'+p.num+' '+p.name;
   switch(c.type){
     case 'undo':return undo.length?{ok:1,label:'Annuler la dernière action'}:{err:'rien à annuler'};
-    case 'pause':return m.running?{ok:1,label:'Arrêt du chrono'}:{err:'le chrono est déjà arrêté'};
+    case 'pause':case 'start':if(linked())return {err:'chrono piloté par Taguage live (liaison active)'};
+  }
+  switch(c.type){
+    case 'pause':return m.running?{ok:1,label:'Pause du chrono'}:{err:'le chrono est déjà en pause'};
     case 'start':return !m.running?{ok:1,label:'Chrono lancé'}:{err:'le chrono tourne déjà'};
     case 'in':if(on(c.a.id))return {err:lab(c.a)+' est déjà sur le terrain'};if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est exclu'};
       if(m.on.length>=capacity())return {err:'terrain complet : dis « … pour '+c.a.num+' »'};return {ok:1,label:'Entre '+lab(c.a)};
@@ -1566,7 +1583,7 @@ function vcheck(c){
       if(on(c.b.id)&&!on(c.a.id)){c.type='sub';return vcheck(c);}return {err:'précise qui sort et qui entre'};}
     case 'sub':if(!on(c.b.id))return {err:lab(c.b)+' n\'est pas sur le terrain'};if(on(c.a.id))return {err:lab(c.a)+' est déjà sur le terrain'};
       if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est exclu'};return {ok:1,label:'Sort '+lab(c.b)+' · entre '+lab(c.a)};
-    case '2min':case 'red':case 'blue':if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est déjà exclu'};
+    case '2min':case 'red':case 'blue':if(linked())return {err:'exclusions gérées par Taguage live (liaison active)'};if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est déjà exclu'};
       return {ok:1,label:{'2min':'2 minutes','red':'Carton rouge','blue':'Carton bleu'}[c.type]+' : '+lab(c.a)};
   }
   return {err:'commande non reconnue'};
@@ -1593,7 +1610,7 @@ function vsegment(text){
   t=t.replace(/(\d*)2\s?(minutes?|min|mn)\b/g,(m,a)=>' '+(a?a+' ':'')+'K2MIN ');
   K(/\bdeux\s?(minutes?|min|mn)\b/g,'K2MIN');K(/\b(exclusion|exclue|exclu)\b/g,'K2MIN');
   K(/\b(carton rouge|rouge|disqualification|disqualifie)\b/g,'KRED');K(/\b(carton bleu|bleu)\b/g,'KBLUE');
-  K(/\b(arret de jeu|arret du jeu|temps mort|pause|stoppe|stopper|stop|arretez|arreter|arrete|arret)\b/g,'KPAUSE');
+  K(/\b(temps mort|pause|stoppe|stopper|stop)\b/g,'KPAUSE');
   K(/\b(on reprend|jeu|reprendre|reprenez|reprenons|reprends|reprend|reprise|c est parti|demarrage|demarrez|demarrer|demarre|relancer|relance|lancer|lance|start|top|go)\b/g,'KSTART');
   K(/\b(annulation|annuler|annule|correction|corriger|corrige|oups|retour)\b/g,'KUNDO');
   K(/\b(remplacee par|remplace par|a la place de|place de|remplace|pour|par|contre|sur)\b/g,'KFOR');
@@ -1673,7 +1690,7 @@ function vBeep(){
 }
 /* Une phrase sans mot de commande (bavardage, numéro crié dans le public) est ignorée en silence. */
 function vLooksLikeCommand(alts){
-  return alts.some(a=>/\b(pour|par|contre|remplace|remplacee|entre|entree|rentre|sort|sortie|sors|dehors|minutes?|exclusion|rouge|bleu|carton|arret|pause|stop|jeu|reprendre|reprise|correction|corrige|annule)\b/.test(vnums(vcmdAlias(vnorm(a)))));
+  return alts.some(a=>/\b(pour|par|contre|remplace|remplacee|entre|entree|rentre|sort|sortie|sors|dehors|minutes?|exclusion|rouge|bleu|carton|pause|stop|jeu|reprendre|reprise|correction|corrige|annule)\b/.test(vnums(vcmdAlias(vnorm(a)))));
 }
 function handleVoice(alts){
   alts=(alts||[]).filter(a=>a&&a.trim());
@@ -1778,7 +1795,7 @@ const CAP=window.Capacitor,NATIVE=!!(CAP&&CAP.isNativePlatform&&CAP.isNativePlat
 const NSP=NATIVE?(CAP.Plugins&&CAP.Plugins.TdjSpeech)||(CAP.registerPlugin&&CAP.registerPlugin('TdjSpeech')):null;
 let nListening=false,nPermOk=false,nRetry=null;
 function nContext(){
-  const w=['pour','correction','entre','sort','remplacé par','2 minutes','deux minutes','exclusion','carton rouge','carton bleu','rouge','bleu','pause','arrêt','temps mort','jeu','reprendre','reprise','annule'];
+  const w=['pour','correction','entre','sort','remplacé par','2 minutes','deux minutes','exclusion','carton rouge','carton bleu','rouge','bleu','pause','stop','temps mort','jeu','reprendre','reprise','annule'];
   const names=(S.roster||[]).map(p=>String(p.num||'')).filter(Boolean);
   (S.voiceNames?S.roster||[]:[]).forEach(p=>{if(p&&p.name){const n=String(p.name).trim().toLowerCase().replace(/(^|[\s-])\S/g,c=>c.toUpperCase());if(n)names.push(n);const last=n.split(/\s+/).pop();if(last&&last!==n)names.push(last);}});
   return [...new Set(names.concat(w))].slice(0,100);
@@ -1800,7 +1817,7 @@ async function nStart(){
 }
 function nStop(){clearTimeout(nRetry);nListening=false;if(NSP)NSP.stop().catch(()=>{});nAwake();}
 let nAwakeOn=null;
-function nAwake(){if(!NSP)return;const want=!!(voiceOn||(S.m&&S.m.running));if(want===nAwakeOn)return;nAwakeOn=want;NSP.setKeepAwake({enabled:want}).catch(()=>{});}
+function nAwake(){if(!NSP)return;const want=!!(voiceOn||(S.m&&S.m.running)||(S.link&&S.link.on));if(want===nAwakeOn)return;nAwakeOn=want;NSP.setKeepAwake({enabled:want}).catch(()=>{});}
 if(NATIVE&&NSP){
   NSP.addListener('partial',e=>{if(voiceOn&&e)vEarly(e.text||'',e.seg);});
   NSP.addListener('utterance',e=>{if(voiceOn)vUtter((e&&e.matches)||[],e&&e.seg);});
@@ -1903,7 +1920,8 @@ function archiveCurrent(){
   const i=S.history.findIndex(h=>h.id===rec.id);
   if(i>=0)S.history[i]=rec;else S.history.push(rec);
 }
-function resetMatch(prev){commit();archiveCurrent();S.m=newMatch(prev);undo=[];sel=null;pick=null;}
+function resetMatch(prev){commit();archiveCurrent();S.m=newMatch(prev);undo=[];sel=null;pick=null;
+  if(S.link){S.link.courtSent=null;}}
 function histTotal(r){return r.m.el.reduce((a,b)=>a+b,0);}
 function renderHistList(){
   const el=$('hlist');if(!el)return;
@@ -2167,7 +2185,7 @@ function showTextDlg(title,text,note){
   const ta=$('txtOut');ta.focus();ta.select();
 }
 $('clock').addEventListener('click',()=>{
-  if(S.m.running){toast('Arrête le chrono (ARRÊT) pour le corriger');return;}
+  if(S.m.running){toast('Mets le chrono en PAUSE pour le corriger');return;}
   openDlg('<h4>Corriger le chrono</h4><p>'+PERIODS[S.m.period]+' : <b id="adjVal" style="color:var(--accent);font-family:var(--display);font-size:22px">'+fmtClock(S.m.el[S.m.period])+'</b>. Le temps des joueurs sur le terrain est corrigé d\'autant.</p>'+
     '<div class="adj"><button data-d="-10000">−10 s</button><button data-d="-1000">−1 s</button><button data-d="1000">+1 s</button><button data-d="10000">+10 s</button></div>'+
     '<div class="adj"><button data-d="-60000">−1 min</button><button data-d="60000">+1 min</button></div>'+
@@ -2240,7 +2258,7 @@ const VHELP=[
     ['rouge 5','Carton rouge : le 5 est disqualifié.','carton rouge 5'],
     ['bleu 5','Carton bleu : le 5 est disqualifié.','carton bleu 5']]],
   ['Chrono',[
-    ['arrêt','Arrête le chrono.','pause · stop · temps mort · arrêt de jeu'],
+    ['pause','Met le chrono en pause.','pause · stop · temps mort'],
     ['jeu','Relance le chrono.','reprendre · reprise · démarrer · top · go']]],
   ['Corriger',[
     ['correction','Annule la dernière action.','annule · corrige · oups']]]
@@ -2281,8 +2299,8 @@ function helpGuideHtml(){
     ['Onglet <b>EFFECTIF</b> : choisis l\'équipe, puis numéros, noms, postes.','Règle la <b>durée des mi-temps</b> et les <b>joueurs sur le terrain</b>.','<b>Importer un fichier</b> : effectif reçu d\'un collègue.'])+
   C(2,'Le 7 de départ',hT(7,'Dupont','0:00','',1)+hA+hT(7,'Dupont','0:00','on'),
     ['Touche un joueur du <b>BANC</b> : il entre sur le terrain.','Recommence jusqu\'à 7/7.'])+
-  C(3,'Le chrono',hB('DÉMARRER','hgo')+hA+hB('ARRÊT','hgo')+'<span class="hx-arrow">⇄</span>'+hB('JEU','hgo'),
-    ['<b>Un seul bouton</b> : DÉMARRER, puis ARRÊT / JEU.','<b>◀ ▶</b> : changer de période.','Chrono arrêté : <b>touche-le</b> pour le corriger.'])+
+  C(3,'Le chrono',hB('DÉMARRER','hgo')+hA+hB('PAUSE','hgo')+'<span class="hx-arrow">⇄</span>'+hB('JEU','hgo'),
+    ['<b>Un seul bouton</b> : DÉMARRER, puis PAUSE / JEU.','<b>◀ ▶</b> : changer de période.','Chrono en pause : <b>touche-le</b> pour le corriger.'])+
   C(4,'Changer un joueur',hT(9,'Martin','4:12','on',1)+hA+'<span>banc</span>',
     ['Terrain : <b>touche un joueur</b>, il sort. Un seul geste.','Banc : <b>touche un joueur</b>, il entre.','Terrain complet : <b>le remplaçant</b>, puis <b>le joueur qui sort</b>.'])+
   C(5,'Exclusions et cartons',hB('Exclusion','hex sm')+hA+hB('2 min','sm')+hA+'<div class="hx-slot"><span>Infériorité<br><b>1:59</b></span></div>',
@@ -2297,12 +2315,246 @@ function helpGuideHtml(){
     ['Fin de la 2e période : match <b>enregistré automatiquement</b>.','<b>Historique des matchs</b> (Temps de jeu) : revoir, exporter, supprimer.','<b>Nouveau match</b> : onglet Effectif.'])+
   C(10,'Sauvegarder et partager',hB('Exporter des effectifs','sm')+hB('Importer','sm'),
     ['Tout est <b>enregistré en continu</b> sur l\'appareil, sans connexion.','<b>Exporter des effectifs</b> : vers un autre iPad / iPhone.','<b>Sauvegarde complète</b> : équipes + matchs.'])+
+  (NATIVE?C(11,'Liaison Taguage live','<span class="hx-btn sm"><span class="ldot" data-c="vert"></span> Relié</span>'+hA+'<span class="hx-bub">9 pour 7</span>',
+    ['Bouton <b>Relier</b> à côté de la période, puis l\'iPad Taguage live. Mémorisé, reconnexion automatique.','Relié : <b>chrono, période et exclusions</b> suivent Taguage live (Exclusion grisé). Tes entrées/sorties partent vers lui.',
+     'Voyant : <b>vert</b> relié · <b>orange</b> reconnexion ou envoi en attente · <b>rouge</b> coupure, tu as la main · <b>gris</b> désactivé.']):'')+
   '</div><p class="hfoot">Version '+APP_VERSION+' · <a href="#" id="hNews" style="color:var(--sky)">Nouveautés</a></p>';
 }
 document.addEventListener('click',e=>{if(e.target&&e.target.id==='hNews'){e.preventDefault();openNews(null);}});
+/* ================= Liaison avec Taguage live (rôle CLIENT, module HbSync) =================
+   Spécification « Liaison Taguage Live ↔ Temps de jeu », sections 4 à 7.
+   - Relié : Taguage live fait foi pour le chrono, la période, le chrono vidéo et les exclusions.
+   - Temps de jeu envoie ses entrées/sorties : event « sub » {out, in, onCourt} au format numéro.Nom.
+   - Coupure : Temps de jeu reprend la main complète ; rien n'est perdu (file d'envoi sauvegardée,
+     accusés cumulés, reprise à la reconnexion). */
+const HB=NATIVE?(CAP.Plugins&&CAP.Plugins.HbSync)||(CAP.registerPlugin&&CAP.registerPlugin('HbSync')):null;
+const LPCODE=['MT1','MT2','PROL1','PROL2'];
+const tNow=()=>performance.now()/1000;           /* horloge locale monotone (s) */
+function linkInit(){if(!S.link)S.link={};const L=S.link;
+  if(L.on==null)L.on=false;if(L.seqOut==null)L.seqOut=0;if(!L.queue)L.queue=[];if(L.lastIn==null)L.lastIn=0;
+  if(!L.above)L.above=[];if(!L.seen)L.seen=[];if(L.matchId===undefined)L.matchId=null;if(L.peer===undefined)L.peer=null;
+  if(L.courtSent===undefined)L.courtSent=null;if(!L.name)L.name='';return L;}
+linkInit();
+/* état volatil (non sauvegardé) */
+const LK={state:'idle',peers:[],welcomed:false,lastRx:0,lostAt:0,connT:null,pingT:null,pingStart:0,ackT:null,
+  samples:[],theta:null,thetaFrom:null,thetaTo:null,thetaT0:0,tl:null,tlRecv:0,sentUpTo:0};
+function uuid(){try{return crypto.randomUUID();}catch(e){return 'x'+Date.now().toString(36)+Math.random().toString(36).slice(2);}}
+/* θ courant, avec correction progressive sur 5 s quand un nouveau θ diffère de plus de 0,2 s */
+function theta(){if(LK.thetaTo==null)return LK.theta||0;const k=Math.min(1,(tNow()-LK.thetaT0)/5);
+  const v=LK.thetaFrom+(LK.thetaTo-LK.thetaFrom)*k;if(k>=1){LK.theta=LK.thetaTo;LK.thetaTo=null;}return v;}
+const tRefNow=()=>tNow()+theta();
+const synced=()=>LK.samples.filter(s=>s.ok).length>=3;
+function linkRaw(type,body){const t=tNow();return{v:1,type,id:uuid(),from:'TDJ',matchId:S.link.matchId,tLocal:t,tRef:t+theta(),body:body||{}};}
+function hbSend(msg){if(!HB||LK.state!=='connected')return Promise.resolve(false);
+  if(msg.matchId==null)msg.matchId=S.link.matchId;
+  return HB.send({message:msg}).then(()=>true).catch(()=>false);}
+/* event : numéroté et écrit dans la file sauvegardée AVANT l'envoi */
+function linkPost(type,body){const L=S.link;if(!L.on)return;const m=linkRaw(type,body);m.seq=++L.seqOut;m._w=Date.now();L.queue.push(m);
+  if(L.queue.length>3000)L.queue.splice(0,L.queue.length-3000);saveRaw();linkFlush();linkPaint();}
+/* Envoi de la file. Les temps tLocal / tRef sont recalculés AU MOMENT DE L'ENVOI à partir de l'heure de
+   création (_w) : un message tagué hors liaison, ou avant un redémarrage de l'app, garde son vrai instant.
+   On n'envoie qu'une fois relié (welcome reçu) ET le décalage d'horloge mesuré (1re mesure ping/pong). */
+const thetaOk=()=>LK.samples.some(x=>x.ok);
+function linkFlush(){const L=S.link;if(!linked()||!thetaOk())return;
+  L.queue.forEach(q=>{if(q.seq<=LK.sentUpTo)return;
+    const tl=tNow()-(Date.now()-(q._w||Date.now()))/1000;
+    const msg=Object.assign({},q,{matchId:L.matchId,tLocal:tl,tRef:tl+theta()});delete msg._w;
+    hbSend(msg);LK.sentUpTo=Math.max(LK.sentUpTo,q.seq);});}
+function saveRaw(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+const linked=()=>!!(S.link.on&&LK.state==='connected'&&LK.welcomed);   /* Taguage live fait foi */
+
+/* ---------- Entrées / sorties → event « sub » ---------- */
+const plab=id=>{const p=P(id);return p?(p.num!==''&&p.num!=null?p.num+'.':'')+p.name:'';};
+function courtNow(){return S.m.on.map(plab).filter(Boolean).sort((a,b)=>(parseInt(a)||0)-(parseInt(b)||0));}
+function linkCourtCheck(force){const L=S.link;if(!L||!L.on)return;
+  const now=courtNow(),prev=L.courtSent;
+  if(!force&&prev&&prev.length===now.length&&prev.every((x,i)=>x===now[i]))return;
+  const out=prev?prev.filter(x=>!now.includes(x)):[],inn=prev?now.filter(x=>!prev.includes(x)):now.slice();
+  L.courtSent=now;
+  linkPost('event',{kind:'sub',payload:{out,in:inn,onCourt:now},matchTime:gameMs()/1000,offline:!linked()});}
+setInterval(linkCourtCheck,250);
+
+/* ---------- Mesure du décalage (ping / pong, méthode NTP) ---------- */
+function pingLoop(){clearTimeout(LK.pingT);if(LK.state!=='connected')return;
+  hbSend(linkRaw('ping',{t1:tNow()}));
+  LK.pingT=setTimeout(pingLoop,tNow()-LK.pingStart<10?1000:5000);}
+function onPong(b,t4){const t1=+b.t1,t2=+b.t2,t3=+b.t3;if(!isFinite(t1+t2+t3))return;
+  const th=((t2-t1)+(t3-t4))/2,dl=(t4-t1)-(t3-t2),ok=dl<=0.3;
+  LK.samples.push({th,dl,ok});if(LK.samples.length>8)LK.samples.shift();
+  const v=LK.samples.filter(s=>s.ok);if(!v.length)return;
+  const first=v.length===1;  /* 1re mesure valide de cette liaison : on peut envoyer la file */
+  const best=v.reduce((a,b)=>b.dl<a.dl?b:a).th,cur=theta();
+  if(LK.theta==null&&LK.thetaTo==null){LK.theta=best;}
+  else if(Math.abs(best-cur)>0.2){LK.thetaFrom=cur;LK.thetaTo=best;LK.thetaT0=tNow();
+    if(Math.abs(best-cur)>1)toast('Liaison : horloges recalées de '+(best-cur>0?'+':'')+(best-cur).toFixed(1)+' s');}
+  else if(LK.thetaTo==null)LK.theta=best;
+  if(first)linkFlush();
+  linkPaint();}
+
+/* ---------- Chrono, période et chrono vidéo pilotés par Taguage live ---------- */
+function perBase(p){let b=0;for(let i=0;i<p;i++)b+=len(i);return b;}
+function tlWall(w,b){/* heure système de Taguage live → heure de cet iPad (si Taguage live envoie son heure « wallNow ») */
+  if(w==null)return null;if(b&&typeof b.wallNow==='number'&&LK.tl)return Math.round(w+(LK.tlRecv-b.wallNow));return w;}
+function tlClock(b,msgTRef){if(!b||!b.period)return;
+  const p=LPCODE.indexOf(b.period);
+  /* chrono vidéo : on adopte les repères de Taguage live */
+  if(b.videoStart!=null){const m=S.m;m.vStart=tlWall(b.videoStart,b);m.vSrc='TL';
+    if(b.videoStarts&&typeof b.videoStarts==='object')Object.keys(b.videoStarts).forEach(k=>{const i=(+k)-1;if(i>=0&&i<4&&b.videoStarts[k]!=null)m.vStarts[i]=tlWall(b.videoStarts[k],b);});
+    if(b.videoMode==='continue'||b.videoMode==='periode')S.videoMode=b.videoMode;}
+  if(p<0)return;
+  LK.tl={b,tRef:msgTRef,recv:tNow()};
+  tlAlign(true);}
+/* aligne le chrono local sur celui de Taguage live (appelé à chaque message clock et toutes les secondes) */
+function tlAlign(fromMsg){if(!linked()||!LK.tl)return;const b=LK.tl.b,p=LPCODE.indexOf(b.period);if(p<0)return;
+  commit();const m=S.m;let changed=false;
+  const run=b.state==='running'&&!b.finished;
+  if(p!==m.period){
+    if(m.running){m.running=false;logEv('stop');}
+    if(m.live){logEv('pend');m.live=false;archiveCurrent();}
+    m.period=p;m.finished=false;logEv('period');changed=true;}
+  /* temps écoulé depuis le message : par les horloges synchronisées si possible, sinon depuis la réception */
+  const since=thetaOk()&&typeof LK.tl.tRef==='number'?tRefNow()-LK.tl.tRef:tNow()-LK.tl.recv;
+  let target=b.matchTime*1000-perBase(p)+(run?Math.max(0,since*1000):0);
+  target=Math.max(0,Math.min(len(p),target));
+  const diff=target-m.el[p];
+  if(Math.abs(diff)>250){advance(diff);changed=true;
+    if(fromMsg&&Math.abs(diff)>1000)toast('Chrono recalé de '+(diff>0?'+':'−')+(Math.abs(diff)/1000).toFixed(1)+' s (Taguage live)');}
+  if(run&&!m.running){m.running=true;m.last=Date.now();
+    if(m.kick==null)m.kick=m.last;if(m.vStart==null)m.vStart=m.last;if(m.vStarts[m.period]==null)m.vStarts[m.period]=m.last;
+    m.live=true;logEv('start');changed=true;}
+  else if(!run&&m.running){m.running=false;logEv('stop');changed=true;}
+  if(b.finished&&!m.finished&&(p===1||p===3)){m.finished=true;changed=true;}
+  if(changed){undo=[];save();renderAll();}}
+setInterval(()=>tlAlign(false),1000);
+
+/* ---------- Exclusions décidées par Taguage live ---------- */
+function plByNum(n){n=String(n==null?'':n).split('.')[0].trim();return S.roster.find(p=>String(p.num)===n)||null;}
+function tlExcl(pl,remS,tlId){/* pl : {player,type,remaining,id} */
+  const p=plByNum(pl.player);if(!p){toast('Liaison : exclusion du n°'+pl.player+' (joueur absent de l\'effectif)');return;}
+  const blue=pl.type==='bleu'||pl.type==='blue';
+  commit();const m=S.m,s=st(p.id),red=blue||pl.type==='rouge'||pl.type==='red';
+  const rem=Math.max(0,Math.min(EXCL_MS,Math.round((remS!=null?remS:EXCL_MS/1000)*1000)));
+  const ex=m.excl.find(e=>e.tl===tlId)||m.excl.find(e=>e.id===p.id);
+  if(ex){ex.rem=rem;ex.tl=tlId;if(red)ex.dq=true;}
+  else{
+    if(m.on.includes(p.id)){leave(p.id);const L=S.link;if(L.courtSent)L.courtSent=courtNow();}  /* pas de « sub » renvoyé */
+    if(red){s.dq=true;s.card=blue?'blue':'red';}else s.twoMin++;
+    m.excl.push({id:p.id,rem,dq:red,tl:tlId});
+    logEv(red?(blue?'blue':'red'):'2min',p.id);m.log[m.log.length-1].src='TL';
+    toast((red?(blue?'Carton bleu':'Carton rouge'):'2 min')+' · '+p.num+'.'+p.name+' (Taguage live)');}
+  m.excl=m.excl.filter(e=>e.rem>0);undo=[];save();renderAll();}
+function tlExclEnd(pl){const m=S.m,p=plByNum(pl.player);
+  const n=m.excl.length;m.excl=m.excl.filter(e=>!(e.tl===pl.id||(p&&e.id===p.id&&e.tl)));
+  if(m.excl.length!==n){save();renderAll();}}
+function tlExclState(list){/* état complet envoyé par Taguage live (welcome) */
+  const ids=new Set();(list||[]).forEach(x=>{ids.add(x.id);tlExcl(x,x.remaining,x.id);});
+  const m=S.m,n=m.excl.length;m.excl=m.excl.filter(e=>!e.tl||ids.has(e.tl));if(m.excl.length!==n){save();renderAll();}}
+
+/* ---------- Réception ---------- */
+function hbAck(){clearTimeout(LK.ackT);LK.ackT=setTimeout(()=>hbSend(linkRaw('ack',{upToSeq:S.link.lastIn})),250);}
+function hbReceive(m){if(!m||typeof m!=='object')return;const t4=tNow(),L=S.link;LK.lastRx=Date.now();LK.lostAt=0;
+  if(m.type==='pong'){onPong(m.body||{},t4);return;}
+  if(m.type==='welcome'){const b=m.body||{};
+    if(b.matchId&&L.matchId&&b.matchId!==L.matchId){
+      /* nouveau match côté Taguage live : on repart de zéro pour la liaison (rien n'est effacé du match local) */
+      L.seqOut=0;L.queue=[];L.lastIn=0;L.above=[];L.seen=[];L.courtSent=null;
+      toast('Liaison : nouveau match sur Taguage live');}
+    else if(b.matchId&&!L.matchId)L.queue.forEach(q=>{q.matchId=b.matchId;});
+    if(b.matchId)L.matchId=b.matchId;
+    LK.welcomed=true;LK.tlRecv=Date.now();
+    if(b.clock)tlClock(Object.assign({},b.clock,{videoStart:b.videoStart!=null?b.videoStart:b.clock.videoStart,
+      videoStarts:b.videoStarts||b.clock.videoStarts,videoMode:b.videoMode||b.clock.videoMode}),m.tRef);
+    tlExclState(b.exclusions);
+    /* reprise : renvoyer dans l'ordre tout ce que Taguage live n'a pas reçu */
+    const last=+b.lastSeqReceived||0;L.queue=L.queue.filter(q=>q.seq>last);
+    LK.sentUpTo=0;linkFlush();
+    /* premier « sub » complet juste après le welcome : Taguage live connaît tout de suite le terrain */
+    linkCourtCheck(true);
+    saveRaw();renderAll();toast('Relié à '+(L.peer||'Taguage live'));linkPaint();return;}
+  if(m.type==='ack'){const up=+(m.body&&m.body.upToSeq)||0,n=L.queue.length;L.queue=L.queue.filter(q=>q.seq>up);if(L.queue.length!==n)saveRaw();linkPaint();return;}
+  if(m.type==='bye'){LK.welcomed=false;linkPaint();return;}
+  if(m.type!=='event'&&m.type!=='clock')return;
+  if(m.matchId&&L.matchId&&m.matchId!==L.matchId){toast('Liaison : message d\'un autre match refusé');return;}
+  const s=+m.seq||0;
+  if(s&&s<=L.lastIn){hbAck();return;}
+  if(m.id&&L.seen.includes(m.id)){hbAck();return;}
+  if(m.id){L.seen.push(m.id);if(L.seen.length>4000)L.seen.splice(0,L.seen.length-4000);}
+  if(s){if(s===L.lastIn+1){L.lastIn=s;L.above=L.above.filter(x=>x>s).sort((a,b)=>a-b);while(L.above[0]===L.lastIn+1)L.lastIn=L.above.shift();}
+    else if(!L.above.includes(s))L.above.push(s);}
+  if(m.type==='clock'){LK.tlRecv=Date.now();tlClock(m.body||{},m.tRef);}
+  else{const b=m.body||{},p=b.payload||{};
+    if(b.kind==='exclusion')tlExcl(p,p.remaining,p.id||m.id);
+    else if(b.kind==='exclusionEnd')tlExclEnd(p);}
+  saveRaw();hbAck();}
+
+/* ---------- Connexion, reconnexion toutes les 2 s, détection de coupure (6 s) ---------- */
+function linkTry(){clearTimeout(LK.connT);const L=S.link;if(!HB||!L.on||!L.peer)return;
+  if(LK.state==='connected'||LK.state==='connecting')return;
+  HB.connect({peerId:L.peer}).catch(()=>{});
+  LK.connT=setTimeout(linkTry,2000);}
+function onState(e){const was=LK.state;LK.state=(e&&e.state)||'idle';
+  if(LK.state==='connected'){LK.lastRx=Date.now();LK.lostAt=0;LK.welcomed=false;LK.samples=[];LK.pingStart=tNow();LK.sentUpTo=0;
+    const L=S.link;hbSend(linkRaw('hello',{app:'TDJ',appVersion:APP_VERSION,deviceName:L.name||'Temps de jeu',protocol:1,lastSeqReceived:L.lastIn}));
+    pingLoop();}
+  else{if(was==='connected'){LK.welcomed=false;LK.lostAt=LK.lostAt||Date.now();}
+    clearTimeout(LK.pingT);if(S.link.on&&(LK.state==='failed'||LK.state==='idle'||LK.state==='searching')){clearTimeout(LK.connT);LK.connT=setTimeout(linkTry,2000);}}
+  renderAll();linkPaint();}
+setInterval(()=>{if(LK.state==='connected'&&LK.lastRx&&Date.now()-LK.lastRx>6000){
+    LK.lostAt=LK.lostAt||LK.lastRx;LK.welcomed=false;if(HB)HB.disconnect().catch(()=>{});LK.state='failed';
+    clearTimeout(LK.connT);LK.connT=setTimeout(linkTry,2000);renderAll();}
+  linkPaint();},1000);
+async function linkStart(){if(!HB)return false;
+  if(!localStorage.getItem('tdj-lan-ok')){toast('iOS va demander l\'accès au réseau local : réponds « Autoriser »');try{localStorage.setItem('tdj-lan-ok','1');}catch(e){}}
+  try{await HB.startBrowse();}catch(e){toast('Liaison impossible : '+((e&&e.message)||e));return false;}
+  linkTry();return true;}
+function linkStop(){const L=S.link;L.on=false;saveRaw();clearTimeout(LK.connT);clearTimeout(LK.pingT);LK.welcomed=false;
+  if(!HB)return;hbSend(linkRaw('bye',{})).finally(()=>{HB.disconnect().catch(()=>{});HB.stopBrowse().catch(()=>{});});
+  LK.state='idle';renderAll();linkPaint();}
+function linkChoose(peer){const L=S.link;L.peer=peer;L.on=true;if(L.courtSent==null)L.courtSent=null;saveRaw();
+  if(LK.state==='connected'||LK.state==='connecting')HB.disconnect().catch(()=>{}).finally(()=>setTimeout(linkTry,300));else linkTry();
+  linkPaint();}
+if(HB){HB.addListener('state',onState);
+  HB.addListener('message',e=>{try{hbReceive(e&&e.message);}catch(err){}});
+  HB.addListener('peerFound',e=>{if(e&&e.peerId&&!LK.peers.includes(e.peerId))LK.peers.push(e.peerId);linkListPaint();if(S.link.on&&e.peerId===S.link.peer)linkTry();});
+  HB.addListener('peerLost',e=>{LK.peers=LK.peers.filter(x=>x!==(e&&e.peerId));linkListPaint();});
+  if(S.link.on)setTimeout(linkStart,700);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&S.link.on){HB.startBrowse().catch(()=>{});linkTry();}});}
+
+/* ---------- Voyant et bouton « Relier » ---------- */
+function linkColor(){const L=S.link;if(!L.on)return 'gris';
+  if(linked()&&!LK.lostAt)return synced()&&!L.queue.length?'vert':'orange';
+  if(LK.lostAt&&Date.now()-LK.lostAt>10000)return 'rouge';
+  return 'orange';}
+function linkPaint(){const b=$('linkBtn');if(!b)return;b.hidden=!HB;if(!HB)return;
+  const c=linkColor(),n=S.link.queue.length;b.dataset.c=c;
+  $('linkN').textContent=S.link.on&&n&&c!=='vert'?n:'';
+  $('linkLbl').textContent=S.link.on?(c==='vert'?'Relié':c==='rouge'?'Coupure':'Liaison…'):'Relier';
+  b.title={vert:'Relié à Taguage live, horloges synchronisées',orange:LK.lostAt?'Reconnexion en cours':(linked()?(n?n+' message(s) en attente':'Synchronisation des horloges…'):'Recherche de Taguage live…'),
+    rouge:'Coupure depuis plus de 10 s : Temps de jeu continue seul',gris:'Liaison désactivée'}[c];
+  const x=$('exclBtn');if(x){x.disabled=linked();x.title=linked()?'Exclusions gérées par Taguage live pendant la liaison':'';}}
+function linkListPaint(){const box=$('linkPeers');if(!box)return;const L=S.link;
+  box.innerHTML=LK.peers.length?LK.peers.map(p=>'<button class="btn lpeer'+(p===L.peer&&L.on?' cur':'')+'" data-peer="'+esc(p)+'">'+(p===L.peer&&L.on?'● ':'')+esc(p)+'</button>').join('')
+    :'<p class="hint-p">Recherche des iPads Taguage live… Vérifie que la liaison est activée dans Taguage live, et que les deux iPads ont le Wi-Fi et le Bluetooth activés (ou sont sur le réseau HB-SYNC).</p>';
+  box.querySelectorAll('[data-peer]').forEach(b=>b.onclick=()=>{linkChoose(b.dataset.peer);closeDlg();toast('Liaison avec '+b.dataset.peer+'…');});}
+function openLink(){if(!HB){toast('Liaison disponible dans l\'app iPad (pas dans le navigateur)');return;}
+  if(!S.link.on||!LK.peers.length)linkStart();
+  const L=S.link,c=linkColor();
+  openDlg('<h4>Liaison avec Taguage live</h4>'+
+    '<p class="lstat"><span class="ldot" data-c="'+c+'"></span>'+esc($('linkBtn').title)+'</p>'+
+    '<p class="lhead">iPads Taguage live trouvés</p><div id="linkPeers" class="lpeers"></div>'+
+    (L.on?'<p class="hint-p">Relié : le chrono, la période et les exclusions suivent Taguage live (bouton Exclusion grisé). En cas de coupure, Temps de jeu reprend la main et se recale tout seul au retour.</p>':'')+
+    '<div class="btns">'+(L.on?'<button class="btn danger" id="linkOff">Délier</button>':'')+'<button class="btn primary" data-close>Fermer</button></div>');
+  linkListPaint();
+  if($('linkOff'))$('linkOff').onclick=()=>{linkStop();closeDlg();toast('Liaison désactivée');};}
+$('linkBtn').addEventListener('click',openLink);
+linkPaint();
+
 /* ---------- Nouveautés : affichées au premier lancement après une mise à jour ---------- */
 const CHANGELOG=[
-  ['1.11.1','16 nov. 2026',['Export Dartfish : colonne « numéro » rétablie à côté de « joueur » (format 7.Nom).']],
+  ['1.12.0','16 nov. 2026',['Liaison avec Taguage live (app iPad) : bouton « Relier » à côté de la période, voyant, reconnexion automatique.',
+    'Relié : chrono, période, chrono vidéo et exclusions suivent Taguage live (bouton Exclusion grisé) ; les entrées/sorties partent vers Taguage live.',
+    'Coupure : Temps de jeu continue seul, rien n\'est perdu, tout se recale au retour.']],
+  ['1.11.1','16 nov. 2026',['Export Dartfish : colonne « numéro » rétablie à côté de « joueur » (format 7.Nom).','Chrono : le bouton ARRÊT devient PAUSE ; à la voix « pause » ou « stop » (« arrêt » est réservé à l\'arrêt du gardien, comme dans Taguage live).']],
   ['1.11.0','16 nov. 2026',['Chrono vidéo : démarre au premier DÉMARRER et ne s\'arrête jamais. Position Dartfish = temps réel depuis le coup d\'envoi, sans décalage à saisir.',
     'Réglage « Mode vidéo » (Effectif) : vidéo continue ou une vidéo par période (un CSV par période).',
     'CSV Dartfish au format de référence : CRLF, joueurs « 7.Dupont », colonnes Description et $$Color, changements et sanctions à l\'instant exact.',
