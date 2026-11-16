@@ -669,7 +669,7 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.11.0';
+const APP_VERSION='1.11.1';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -1146,9 +1146,9 @@ function dartfishRows(m){
   const lab=p=>(p.num!==''&&p.num!=null?p.num+'.':'')+(p.name||'');
   const openS=(id,l)=>{open[id]={w:l.w,p:l.p,c:l.c};};
   const closeS=(id,w)=>{const o=open[id];if(!o)return;delete open[id];const p=pl(id);
-    rows.push({name:lab(p),w:o.w,dur:Math.max(1000,w-o.w),cat:'Présence terrain',j:lab(p),pos:p.pos,out:'',p:o.p,c:fmtClock(o.c)});};
+    rows.push({name:lab(p),w:o.w,dur:Math.max(1000,w-o.w),cat:'Présence terrain',j:lab(p),num:p.num,pos:p.pos,out:'',p:o.p,c:fmtClock(o.c)});};
   const point=(name,l,id,id2)=>{const p=id?pl(id):null,o=id2?pl(id2):null;
-    rows.push({name,w:l.w,dur:0,cat:name,j:p?lab(p):'',pos:p?p.pos:'',out:o?lab(o):'',p:l.p,c:fmtClock(l.c)});};
+    rows.push({name,w:l.w,dur:0,cat:name,j:p?lab(p):'',num:p?p.num:'',pos:p?p.pos:'',out:o?lab(o):'',p:l.p,c:fmtClock(l.c)});};
   (m.log||[]).forEach(l=>{
     if(l.w==null)return;
     switch(l.t){
@@ -1172,8 +1172,8 @@ function dartfishRows(m){
 /* Format de référence (claude/format-csv-dartfish.md) : UTF-8 avec BOM, CRLF, virgule, temps en ms entiers. */
 function dartfishText(rows,ref){
   const qc=v=>{v=String(v==null?'':v);return /[,"\r\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v;};
-  const L=['Nom,Position,Durée:,catégorie,joueur,sortant,poste,période,chrono,heure,Description,$$Color'];
-  rows.forEach(r=>L.push([qc(r.name),Math.max(0,Math.round(r.w-ref)),Math.round(r.dur),qc(r.cat),qc(r.j),qc(r.out),qc(r.pos),qc(PCSV[r.p]),qc(r.c),hhmmss(r.w),'',''].join(',')));
+  const L=['Nom,Position,Durée:,catégorie,joueur,numéro,sortant,poste,période,chrono,heure,Description,$$Color'];
+  rows.forEach(r=>L.push([qc(r.name),Math.max(0,Math.round(r.w-ref)),Math.round(r.dur),qc(r.cat),qc(r.j),qc(r.num),qc(r.out),qc(r.pos),qc(PCSV[r.p]),qc(r.c),hhmmss(r.w),'',''].join(',')));
   return '﻿'+L.join('\r\n')+'\r\n';
 }
 /* mode 'continue' : [{suffix:'',csv}] ; mode 'periode' : un fichier par période jouée */
@@ -2302,6 +2302,7 @@ function helpGuideHtml(){
 document.addEventListener('click',e=>{if(e.target&&e.target.id==='hNews'){e.preventDefault();openNews(null);}});
 /* ---------- Nouveautés : affichées au premier lancement après une mise à jour ---------- */
 const CHANGELOG=[
+  ['1.11.1','16 nov. 2026',['Export Dartfish : colonne « numéro » rétablie à côté de « joueur » (format 7.Nom).']],
   ['1.11.0','16 nov. 2026',['Chrono vidéo : démarre au premier DÉMARRER et ne s\'arrête jamais. Position Dartfish = temps réel depuis le coup d\'envoi, sans décalage à saisir.',
     'Réglage « Mode vidéo » (Effectif) : vidéo continue ou une vidéo par période (un CSV par période).',
     'CSV Dartfish au format de référence : CRLF, joueurs « 7.Dupont », colonnes Description et $$Color, changements et sanctions à l\'instant exact.',
