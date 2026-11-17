@@ -330,6 +330,9 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
 .ver-tab{align-self:center;padding:0 10px;font-size:13px;color:var(--muted);white-space:nowrap}
 @media (max-width:900px){nav.tabs .aidel{display:none}.ver-tab{font-size:12px;padding:0 6px}}
 @media (max-width:600px){.ver-tab{font-size:10px;padding:0 4px}}
+#periodLabel{cursor:pointer;text-decoration:underline dotted rgba(255,255,255,.35);text-underline-offset:5px}
+.go.nextp{font-size:20px;letter-spacing:.01em}
+.go.locked,.icon-btn.locked{opacity:.4;filter:grayscale(.6)}
 .lhead{margin:12px 0 4px;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 .lcmds .btn{justify-content:center}
 .news h5{margin:14px 0 4px;font-size:15px}
@@ -684,7 +687,7 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.12.1';
+const APP_VERSION='1.13.0';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -778,10 +781,10 @@ function commit(){
       m.running=false;undo=[];
       const endWall=m.last+d;
       logEv('stop',null,null,endWall);
-      if(m.live){logEv('pend',null,null,endWall);m.live=false;}
-      archiveCurrent();
-      if(m.period===1||m.period===3){m.finished=true;save();setTimeout(()=>showEndDlg(),0);}
-      else{const nxt=PERIODS[m.period+1];toast('Fin de la '+PERIODS[m.period]+' · match enregistré','Passer en '+nxt,()=>changePeriod(1),true);}
+      /* Fin du temps : le chrono s'arrête mais l'app RESTE dans la période (spec liaison, section 5).
+         Le bouton principal propose « → période suivante » ; le match se termine par « Terminer le match ». */
+      archiveCurrent();save();
+      setTimeout(()=>{renderHeader();toast('Fin du temps de la '+PERIODS[m.period]+(m.period<3?' · « → '+PERIODS[m.period+1]+' » quand elle est vraiment finie':' · touche « Terminer le match »'));},0);
     }
   }
   m.last=now;
@@ -836,13 +839,14 @@ function slotLabel(e,p){
 function doDismissExcl(id){act(()=>{S.m.excl=S.m.excl.filter(e=>e.id!==id);});}
 
 function toggleClock(){
-  if(typeof linked==='function'&&linked()){toast('Chrono piloté par Taguage live pendant la liaison');return;}
+  if(isLinked()){toast('Chrono piloté par Taguage live pendant la liaison');return;}
   commit();
   const m=S.m;
   if(m.finished&&!m.running){showEndDlg();return;}
   if(!m.running&&m.el[m.period]>=len(m.period)){
-    const nxt=m.period<3;
-    toast('La '+PERIODS[m.period]+' est terminée',nxt?'Passer en '+PERIODS[m.period+1]:null,nxt?()=>changePeriod(1):null);return;
+    /* temps écoulé : un toucher passe à la période suivante (ou termine le match après la Prol. 2) */
+    if(m.period<3)changePeriod(1);else askFinish();
+    return;
   }
   m.running=!m.running;m.last=Date.now();undo=[];
   if(m.running){
@@ -855,8 +859,11 @@ function toggleClock(){
   }else logEv('stop');
   save();renderHeader();updateTimes();
 }
+/* liaison active ? (sûr même avant que le module de liaison soit initialisé) */
+function isLinked(){try{return linked();}catch(e){return false;}}
+function periodEnded(){const m=S.m;return !m.running&&!m.finished&&m.el[m.period]>=len(m.period);}
 function changePeriod(dir){
-  if(typeof linked==='function'&&linked()){toast('Période pilotée par Taguage live pendant la liaison');return;}
+  if(isLinked()){toast('Période pilotée par Taguage live pendant la liaison');return;}
   commit();
   const m=S.m;if(m.running)return;
   const p=m.period+dir;if(p<0||p>3)return;
@@ -865,7 +872,7 @@ function changePeriod(dir){
   hideToast();save();renderAll();
 }
 function adjustClock(deltaMs){
-  if(typeof linked==='function'&&linked()){toast('Chrono piloté par Taguage live pendant la liaison');return;}
+  if(isLinked()){toast('Chrono piloté par Taguage live pendant la liaison');return;}
   commit();
   const m=S.m;if(m.running)return;
   let d=deltaMs;
@@ -890,8 +897,13 @@ function renderHeader(){
   $('periodLabel').textContent=m.finished?'TERMINÉ':PERIODS[m.period];
   $('prevP').disabled=m.running||m.period===0;
   $('nextP').disabled=m.running||m.period===3;
-  const go=$('goBtn');go.textContent=m.running?'PAUSE':(m.finished?'FIN DU MATCH':(gameMs()===0?'DÉMARRER':'JEU'));
+  const lk=isLinked(),ended=periodEnded();
+  const go=$('goBtn');go.textContent=m.running?'PAUSE':(m.finished?'FIN DU MATCH':ended?(m.period<3?'→ '+PERIODS[m.period+1]:'TERMINER'):(gameMs()===0?'DÉMARRER':'JEU'));
   go.classList.toggle('done',!!m.finished&&!m.running);
+  go.classList.toggle('nextp',ended);
+  /* reliés : Taguage live décide du passage de période et de la fin du match */
+  go.classList.toggle('locked',lk&&ended);
+  $('nextP').classList.toggle('locked',lk);
   go.classList.toggle('running',m.running);
   $('clock').classList.toggle('paused',!m.running);
   $('undoBtn').disabled=!undo.length;
@@ -1172,7 +1184,7 @@ function dartfishRows(m){
     switch(l.t){
       case 'start':if(!live){live=true;on.forEach(id=>openS(id,l));}lastStop=null;break;
       case 'stop':lastStop=l.w;break;
-      case 'pend':on.forEach(id=>closeS(id,l.w));live=false;point('Fin de période',l);break;
+      case 'pend':{const we=lastStop!=null?lastStop:l.w;on.forEach(id=>closeS(id,we));live=false;point('Fin de période',Object.assign({},l,{w:we}));break;}
       case 'period':break;
       case 'in':on.add(l.id);if(live)openS(l.id,l);break;
       case 'out':on.delete(l.id);closeS(l.id,l.w);break;
@@ -1577,7 +1589,7 @@ function vcheck(c){
   }
   switch(c.type){
     case 'pause':return m.running?{ok:1,label:'Pause du chrono'}:{err:'le chrono est déjà en pause'};
-    case 'start':return !m.running?{ok:1,label:'Chrono lancé'}:{err:'le chrono tourne déjà'};
+    case 'start':if(periodEnded())return {err:'fin du temps : touche « → '+(m.period<3?PERIODS[m.period+1]:'Terminer')+' » à l\'écran'};return !m.running?{ok:1,label:'Chrono lancé'}:{err:'le chrono tourne déjà'};
     case 'in':if(on(c.a.id))return {err:lab(c.a)+' est déjà sur le terrain'};if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est exclu'};
       if(m.on.length>=capacity())return {err:'terrain complet : dis « … pour '+c.a.num+' »'};return {ok:1,label:'Entre '+lab(c.a)};
     case 'out':return on(c.a.id)?{ok:1,label:'Sort '+lab(c.a)}:{err:lab(c.a)+' n\'est pas sur le terrain'};
@@ -1898,6 +1910,32 @@ function savedBox(rec,title){
   return '<div class="saved-ok"><span class="ck">✓</span><span><b>'+esc(title)+'</b>'+
     esc((rec?rec.team:T().name)+(m.opp?' vs '+m.opp:'')+' · '+fmtDate(m.date)+' · '+fmt(g)+' joués')+'<br>Enregistré à '+hhmmss(when.getTime()).slice(0,5)+' dans l\'historique (onglet Temps de jeu)</span></span></div>';
 }
+/* Terminer le match : même effet que Historique › Terminer le match (archivé + nouveau match vide prêt) */
+function finishMatch(){
+  const id=S.m.id;commit();if(S.m.running){S.m.running=false;logEv('stop');}
+  if(S.m.live){logEv('pend');S.m.live=false;}
+  S.m.finished=true;archiveCurrent();resetMatch(S.m);save();renderAll();showView('match');
+  const rec=S.history.find(h=>h.id===id);
+  openDlg('<h4>Match terminé</h4>'+savedBox(rec,'Match enregistré')+'<div class="end-actions"><button class="btn primary" id="savedPdf">Envoyer le rapport PDF</button><button class="btn blue" id="savedView">Voir ce match</button><button class="btn" data-close>OK</button></div>');
+  $('savedView').onclick=()=>{closeDlg();VIEW=rec||null;showView('stats');};
+  $('savedPdf').onclick=()=>{closeDlg();VIEW=rec||null;showView('stats');$('reportBtn').click();};
+}
+function askFinish(){
+  if(isLinked()){toast('Fin du match décidée par Taguage live pendant la liaison');return;}
+  confirmDlg('Terminer le match ?','Le match est archivé dans l\'historique (temps de jeu, PDF et export Dartfish restent disponibles) et un nouveau match vide est prêt avec la même équipe.','Terminer le match',finishMatch);
+}
+function openPeriodMenu(){
+  const m=S.m,lk=isLinked(),canNext=!m.running&&!m.finished&&m.period<3;
+  openDlg('<h4>'+(m.finished?'Match terminé':PERIODS[m.period])+'</h4>'+
+    (lk?'<p class="hint-p">Relié : Taguage live décide du passage de période et de la fin du match. Ces boutons redeviennent actifs en cas de coupure.</p>':'')+
+    '<div class="end-actions">'+
+      (m.period<3?'<button class="btn" id="pmNext"'+(lk||!canNext?' disabled':'')+'>→ '+PERIODS[m.period+1]+'</button>':'')+
+      '<button class="btn danger" id="pmEnd"'+(lk||m.finished?' disabled':'')+'>Terminer le match</button>'+
+    '</div><div class="btns"><button class="btn primary" data-close>Fermer</button></div>');
+  if($('pmNext'))$('pmNext').onclick=()=>{closeDlg();changePeriod(1);};
+  $('pmEnd').onclick=()=>{closeDlg();askFinish();};
+}
+$('periodLabel').addEventListener('click',openPeriodMenu);
 function showEndDlg(){
   const m=S.m,rec=S.history.find(h=>h.id===m.id);
   const ot=m.period===1;
@@ -1949,11 +1987,7 @@ function openHistory(){
   $('histSearch').addEventListener('input',renderHistList);
   $('hlist').addEventListener('click',e=>{const b=e.target.closest('[data-hist]');if(!b)return;
     VIEW=S.history.find(h=>h.id===b.dataset.hist)||null;closeDlg();showView('stats');});
-  if($('histEnd'))$('histEnd').onclick=()=>{closeDlg();confirmDlg('Terminer le match en cours ?','Il est archivé dans l\'historique et un nouveau match vide est prêt avec la même équipe.','Terminer et archiver',()=>{
-    const id=S.m.id;resetMatch(S.m);save();renderAll();
-    const rec=S.history.find(h=>h.id===id);
-    openDlg('<h4>Match terminé</h4>'+savedBox(rec,'Match enregistré')+'<div class="end-actions"><button class="btn blue" id="savedView">Voir ce match</button><button class="btn primary" data-close>OK</button></div>');
-    $('savedView').onclick=()=>{closeDlg();VIEW=rec||null;showView('stats');};});};
+  if($('histEnd'))$('histEnd').onclick=()=>{closeDlg();askFinish();};
 }
 $('histBtn').addEventListener('click',openHistory);
 
@@ -2304,7 +2338,7 @@ function helpGuideHtml(){
   C(2,'Le 7 de départ',hT(7,'Dupont','0:00','',1)+hA+hT(7,'Dupont','0:00','on'),
     ['Touche un joueur du <b>BANC</b> : il entre sur le terrain.','Recommence jusqu\'à 7/7.'])+
   C(3,'Le chrono',hB('DÉMARRER','hgo')+hA+hB('PAUSE','hgo')+'<span class="hx-arrow">⇄</span>'+hB('JEU','hgo'),
-    ['<b>Un seul bouton</b> : DÉMARRER, puis PAUSE / JEU.','<b>◀ ▶</b> : changer de période.','Chrono en pause : <b>touche-le</b> pour le corriger.'])+
+    ['<b>Un seul bouton</b> : DÉMARRER, puis PAUSE / JEU.','Fin du temps : le chrono s\'arrête, le bouton affiche <b>→ 2e MT</b> ; touche-le quand la période est vraiment finie.','Touche le <b>nom de la période</b> pour <b>Terminer le match</b>.','<b>◀ ▶</b> : changer de période.','Chrono en pause : <b>touche-le</b> pour le corriger.'])+
   C(4,'Changer un joueur',hT(9,'Martin','4:12','on',1)+hA+'<span>banc</span>',
     ['Terrain : <b>touche un joueur</b>, il sort. Un seul geste.','Banc : <b>touche un joueur</b>, il entre.','Terrain complet : <b>le remplaçant</b>, puis <b>le joueur qui sort</b>.'])+
   C(5,'Exclusions et cartons',hB('Exclusion','hex sm')+hA+hB('2 min','sm')+hA+'<div class="hx-slot"><span>Infériorité<br><b>1:59</b></span></div>',
@@ -2541,20 +2575,34 @@ function linkListPaint(){const box=$('linkPeers');if(!box)return;const L=S.link;
     :'<p class="hint-p">Recherche des iPads Taguage live… Vérifie que la liaison est activée dans Taguage live, et que les deux iPads ont le Wi-Fi et le Bluetooth activés (ou sont sur le réseau HB-SYNC).</p>';
   box.querySelectorAll('[data-peer]').forEach(b=>b.onclick=()=>{linkChoose(b.dataset.peer);closeDlg();toast('Liaison avec '+b.dataset.peer+'…');});}
 function openLink(){if(!HB){toast('Liaison disponible dans l\'app iPad (pas dans le navigateur)');return;}
+  if(linked()){
+    /* relié : même petite fenêtre que Taguage live. Un toucher par erreur ne coupe jamais la liaison. */
+    const L=S.link,c=linkColor(),n=L.queue.length;
+    openDlg('<h4>Liaison avec Taguage live</h4>'+
+      '<p class="lstat"><span class="ldot" data-c="'+c+'"></span><b>'+({vert:'Relié',orange:'Relié · synchronisation en cours',rouge:'Coupure',gris:'Désactivée'}[c]||'Relié')+'</b></p>'+
+      '<p>iPad relié : <b>'+esc(L.peer||'Taguage live')+'</b><br>Messages en attente : <b>'+n+'</b></p>'+
+      '<div class="btns"><button class="btn danger" id="linkOff">Couper la liaison</button><button class="btn primary" data-close>Fermer</button></div>');
+    $('linkOff').onclick=()=>{linkStop();closeDlg();toast('Liaison coupée · Temps de jeu reprend la main');renderAll();};
+    return;
+  }
   if(!S.link.on||!LK.peers.length)linkStart();
   const L=S.link,c=linkColor();
   openDlg('<h4>Liaison avec Taguage live</h4>'+
     '<p class="lstat"><span class="ldot" data-c="'+c+'"></span>'+esc($('linkBtn').title)+'</p>'+
     '<p class="lhead">iPads Taguage live trouvés</p><div id="linkPeers" class="lpeers"></div>'+
     (L.on?'<p class="hint-p">Relié : le chrono, la période et les exclusions suivent Taguage live (bouton Exclusion grisé). En cas de coupure, Temps de jeu reprend la main et se recale tout seul au retour.</p>':'')+
-    '<div class="btns">'+(L.on?'<button class="btn danger" id="linkOff">Délier</button>':'')+'<button class="btn primary" data-close>Fermer</button></div>');
+    '<div class="btns">'+(L.on?'<button class="btn danger" id="linkOff">Couper la liaison</button>':'')+'<button class="btn primary" data-close>Fermer</button></div>');
   linkListPaint();
-  if($('linkOff'))$('linkOff').onclick=()=>{linkStop();closeDlg();toast('Liaison désactivée');};}
+  if($('linkOff'))$('linkOff').onclick=()=>{linkStop();closeDlg();toast('Liaison coupée');renderAll();};}
 $('linkBtn').addEventListener('click',openLink);
 linkPaint();
 
 /* ---------- Nouveautés : affichées au premier lancement après une mise à jour ---------- */
 const CHANGELOG=[
+  ['1.13.0','17 nov. 2026',['Fin du temps : le chrono s\'arrête et l\'app reste dans la période ; le gros bouton affiche « → 2e MT » (ou la période suivante) pour passer quand elle est vraiment finie.',
+    '« Terminer le match » : touche le nom de la période en haut (confirmation).',
+    'Reliés à Taguage live : « → période suivante » et « Terminer le match » grisés, Taguage live décide ; ils reviennent en cas de coupure.',
+    'Relié, le bouton de liaison ouvre une petite fenêtre (état, « Couper la liaison », « Fermer ») : un toucher par erreur ne coupe plus rien.']],
   ['1.12.1','17 nov. 2026',['Numéro de version affiché en bas de l\'écran, à côté du bouton Rapport PDF.']],
   ['1.12.0','16 nov. 2026',['Liaison avec Taguage live (app iPad) : bouton « Relier » à côté de la période, voyant, reconnexion automatique.',
     'Relié : chrono, période, chrono vidéo et exclusions suivent Taguage live (bouton Exclusion grisé) ; les entrées/sorties partent vers Taguage live.',
