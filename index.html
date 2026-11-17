@@ -187,7 +187,7 @@ main{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
 .btn:disabled{opacity:.35;cursor:default}
 
 /* ---------- Onglets ---------- */
-nav.tabs{display:grid;grid-template-columns:repeat(3,1fr) minmax(64px,.55fr) auto;background:rgba(10,19,80,.92);border-top:2px solid var(--blue);padding-bottom:env(safe-area-inset-bottom)}
+nav.tabs{display:grid;grid-template-columns:repeat(3,1fr) minmax(64px,.55fr) auto auto;background:rgba(10,19,80,.92);border-top:2px solid var(--blue);padding-bottom:env(safe-area-inset-bottom)}
 nav.tabs button{height:64px;border:none;background:none;font-family:var(--display);font-size:20px;white-space:nowrap;text-transform:uppercase;color:var(--muted)}
 .report-btn{display:flex;align-items:center;gap:10px;margin:8px 12px;height:48px!important;padding:0 18px;border-radius:12px;
   background:var(--accent)!important;color:var(--navy)!important;font-family:var(--display);font-size:18px;text-transform:uppercase;white-space:nowrap}
@@ -327,6 +327,9 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
 .lpeers{display:grid;gap:8px;margin:6px 0 10px}.lpeer{height:52px;justify-content:flex-start}.lpeer.cur{border-color:var(--accent)}
 .excl-btn:disabled{opacity:.35;filter:grayscale(1)}
 @media (max-width:600px){.link-btn .lbl{display:none}.link-btn{height:30px;padding:0 8px;margin-left:4px}}
+.ver-tab{align-self:center;padding:0 10px;font-size:13px;color:var(--muted);white-space:nowrap}
+@media (max-width:900px){nav.tabs .aidel{display:none}.ver-tab{font-size:12px;padding:0 6px}}
+@media (max-width:600px){.ver-tab{font-size:10px;padding:0 4px}}
 .lhead{margin:12px 0 4px;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 .lcmds .btn{justify-content:center}
 .news h5{margin:14px 0 4px;font-size:15px}
@@ -669,7 +672,8 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
   <button role="tab" data-view="match" aria-selected="true">Match</button>
   <button role="tab" data-view="stats" aria-selected="false">Temps<span class="long"> de jeu</span></button>
   <button role="tab" data-view="roster" aria-selected="false">Effectif</button>
-  <button role="tab" data-view="help" aria-selected="false" aria-label="Aide"><span class="qm">?</span><span class="long"> Aide</span></button>
+  <button role="tab" data-view="help" aria-selected="false" aria-label="Aide"><span class="qm">?</span><span class="aidel"> Aide</span></button>
+  <span id="verTab" class="ver-tab" title="Version de l'app"></span>
   <button class="report-btn" id="reportBtn" aria-label="Envoyer le rapport PDF"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg><span class="lbl">Rapport PDF</span></button>
 </nav>
 
@@ -680,7 +684,7 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.12.0';
+const APP_VERSION='1.12.1';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -2551,6 +2555,7 @@ linkPaint();
 
 /* ---------- Nouveautés : affichées au premier lancement après une mise à jour ---------- */
 const CHANGELOG=[
+  ['1.12.1','17 nov. 2026',['Numéro de version affiché en bas de l\'écran, à côté du bouton Rapport PDF.']],
   ['1.12.0','16 nov. 2026',['Liaison avec Taguage live (app iPad) : bouton « Relier » à côté de la période, voyant, reconnexion automatique.',
     'Relié : chrono, période, chrono vidéo et exclusions suivent Taguage live (bouton Exclusion grisé) ; les entrées/sorties partent vers Taguage live.',
     'Coupure : Temps de jeu continue seul, rien n\'est perdu, tout se recale au retour.']],
@@ -2592,6 +2597,7 @@ function openNews(since){
     if(!fresh)setTimeout(()=>openNews(seen||CHANGELOG[1][0]),600);
   }
 })();
+$('verTab').textContent='v'+APP_VERSION;
 $('verInfo').textContent='Version '+APP_VERSION+(NATIVE?' · app iOS':navigator.standalone||matchMedia('(display-mode: standalone)').matches?' · installée sur l\'écran d\'accueil':' · ouverte dans le navigateur : ajoute-la à l\'écran d\'accueil pour l\'utiliser hors ligne');
 })();
 </script>
