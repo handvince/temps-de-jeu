@@ -333,6 +333,10 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
 #periodLabel{cursor:pointer;text-decoration:underline dotted rgba(255,255,255,.35);text-underline-offset:5px}
 .go.nextp{font-size:20px;letter-spacing:.01em}
 .go.locked,.icon-btn.locked{opacity:.4;filter:grayscale(.6)}
+.slot.who{cursor:pointer;border-color:var(--accent)!important;animation:whoPulse 1.2s ease-in-out infinite}
+.slot-who{font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase}
+.excl-btn.who{border-color:var(--accent);animation:whoPulse 1.2s ease-in-out infinite}
+@keyframes whoPulse{50%{box-shadow:0 0 0 4px rgba(217,250,122,.35)}}
 .lhead{margin:12px 0 4px;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 .lcmds .btn{justify-content:center}
 .news h5{margin:14px 0 4px;font-size:15px}
@@ -687,7 +691,7 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.13.0';
+const APP_VERSION='1.13.1';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -832,7 +836,10 @@ function doDisq(id,card){
     logEv(card==='blue'?'blue':'red',id);
   });
 }
+function exKey(e){return e.id||('tl:'+e.tl);}
+function pendingTl(){return S.m.excl.filter(e=>!e.id&&e.tl&&e.rem>0);}
 function slotLabel(e,p){
+  if(!e.id){const c=e.card||(e.dq?'red':'');return (c==='blue'?'carton bleu':c?'carton rouge':'2 min')+' · joueur ?';}
   const c=e.dq?(st(e.id).card||'red'):'',n=p?' #'+esc(p.num):'';
   return c==='blue'?'carton bleu'+n:c==='3x2'?'3e exclusion'+n:c?'carton rouge'+n:'2 min'+(p?' de #'+esc(p.num):'');
 }
@@ -930,7 +937,7 @@ function posChip(pos){return pos?'<em class="pc pc-'+(POS_GRP[pos]||'dc')+'">'+e
 function sortedRoster(){return S.roster.slice().sort((a,b)=>(+a.num||999)-(+b.num||999));}
 function renderMatch(force){
   const m=S.m;
-  const key=JSON.stringify([pick,m.on,m.excl.map(e=>e.id+(e.rem>0?'a':'r')+(e.dq?'d':'')),sel,rv,
+  const key=JSON.stringify([pick,m.on,m.excl.map(e=>exKey(e)+(e.rem>0?'a':'r')+(e.dq?'d':'')),sel,rv,
     Object.keys(m.st).filter(k=>m.st[k].dq||m.st[k].twoMin).map(k=>k+m.st[k].twoMin+m.st[k].dq)]);
   if(!force&&key===structKey){updateTimes();return;}
   structKey=key;
@@ -938,7 +945,8 @@ function renderMatch(force){
   const court=m.on.map(P).filter(Boolean).sort(byNum);
   let ch=court.map(p=>tileHTML(p,'court')).join('');
   m.excl.forEach(e=>{if(e.rem<=0)return;const p=P(e.id);
-    ch+='<div class="slot" aria-label="Place vide : exclusion"><span class="slot-l">Infériorité</span><span class="slot-t" data-slot="'+e.id+'"></span><span class="slot-l">'+slotLabel(e,p)+'</span></div>';});
+    const who=!e.id;  /* exclusion de Taguage live sans numéro : toucher la case pour désigner le joueur */
+    ch+='<div class="slot'+(who?' who':'')+'"'+(who?' data-assign="'+esc(e.tl)+'" role="button" tabindex="0"':'')+' aria-label="Place vide : exclusion"><span class="slot-l">Infériorité</span><span class="slot-t" data-slot="'+esc(exKey(e))+'"></span><span class="slot-l">'+slotLabel(e,p)+'</span>'+(who?'<span class="slot-who">Qui ? Touche ici</span>':'')+'</div>';});
   $('courtGrid').innerHTML=ch||'<div class="empty">Personne sur le terrain. Touche les joueurs du banc pour composer le 7 de départ.</div>';
   /* joueurs disqualifiés (rouge, bleu, 3e exclusion) en fin de banc, dès le carton */
   const bench=sortedRoster().filter(p=>!m.on.includes(p.id)).map((p,i)=>[p,i]).sort((a,b)=>(!!st(a[0].id).dq-!!st(b[0].id).dq)||a[1]-b[1]).map(x=>x[0]);
@@ -994,7 +1002,7 @@ function updateTimes(){
   const cap=capacity();
   $('courtCount').textContent=m.on.length+'/'+cap;
   let w='';
-  if(m.on.length>cap)w='Trop de joueurs : fais sortir '+(m.on.length-cap);
+  if(m.on.length>cap)w=pendingTl().length?'Exclusion Taguage live : désigne le joueur exclu (case « Qui ? »)':'Trop de joueurs : fais sortir '+(m.on.length-cap);
   else if(m.running&&m.on.length<cap)w='Il manque '+(cap-m.on.length)+' joueur'+(cap-m.on.length>1?'s':'');
   if(activeExcl())w=(w?w+' · ':'')+'Infériorité numérique';
   $('courtWarn').textContent=w;
@@ -1004,7 +1012,7 @@ function updateTimes(){
     else if(s&&s.dq)el.textContent=s.card==='blue'?'Carton bleu':'Disqualifié';
     else el.textContent=fmt(total(id));
   });
-  document.querySelectorAll('[data-slot]').forEach(el=>{const e=isExcl(el.dataset.slot);el.textContent=e?fmt(e.rem+999):'';});
+  document.querySelectorAll('[data-slot]').forEach(el=>{const e=S.m.excl.find(x=>exKey(x)===el.dataset.slot);el.textContent=e?fmt(e.rem+999):'';});
   document.querySelectorAll('[data-sub]').forEach(el=>{
     const id=el.dataset.sub,s=m.st[id],e=isExcl(id);
     if(e){el.textContent=e.dq?'disqualifié':'exclu';return;}
@@ -1020,6 +1028,11 @@ function renderActionBar(){
   const bar=$('actionbar');
   bar.classList.toggle('pickbar',!!pick);
   $('exclBtn').setAttribute('aria-pressed',String(!!pick));
+  if(pick&&pick.startsWith('assign:')){
+    const e=S.m.excl.find(x=>x.tl===pick.slice(7)&&!x.id);
+    bar.innerHTML='<span class="msg"><b>Exclusion Taguage live ('+(e?slotLabel(e).replace(' · joueur ?',''):'')+')</b> : touche le joueur exclu</span><button class="btn" data-a="cancel">Annuler</button>';
+    bar.classList.add('show');return;
+  }
   if(pick){
     bar.innerHTML='<span class="msg"><b>'+EXCL_LABEL[pick]+'</b> : touche le joueur exclu (terrain ou banc)</span><button class="btn" data-a="cancel">Annuler</button>';
     bar.classList.add('show');return;
@@ -1035,6 +1048,7 @@ function onTile(id,kind){
   if(pick){
     if(kind==='excl'||kind==='dq'){toast('Ce joueur est déjà exclu');return;}
     const x=pick;pick=null;
+    if(x.startsWith('assign:')){tlAssign(x.slice(7),id);return;}
     if(x==='2min')doTwoMin(id);else doDisq(id,x);
     return;
   }
@@ -1061,8 +1075,11 @@ function gridKey(e){
 ['courtGrid','benchGrid'].forEach(g=>{$(g).addEventListener('click',gridClick);$(g).addEventListener('keydown',gridKey);});
 $('actionbar').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;sel=null;pick=null;renderMatch(true);});
 
+function startAssign(tl){pick='assign:'+tl;sel=null;if(view!=='match')showView('match');renderMatch(true);}
 function openExclDlg(){
   if(pick){pick=null;renderMatch(true);return;}
+  /* relié : le bouton Exclusion ne sert qu'à désigner le joueur d'une exclusion reçue de Taguage live sans numéro */
+  if(isLinked()){const pd=pendingTl();if(pd.length)startAssign(pd[0].tl);else toast('Exclusions gérées par Taguage live pendant la liaison');return;}
   openDlg('<h4>Exclusion</h4>'+
     '<p>1. Choisis la sanction. 2. Touche ensuite le joueur exclu, sur le terrain ou sur le banc. L\'équipe joue 2 min en infériorité numérique.</p>'+
     '<div class="excl-choices">'+
@@ -1076,6 +1093,7 @@ function openExclDlg(){
   });
 }
 $('exclBtn').addEventListener('click',openExclDlg);
+$('courtGrid').addEventListener('click',e=>{const t=e.target.closest('[data-assign]');if(t)startAssign(t.dataset.assign);});
 
 /* ---------- Rendu : stats ---------- */
 function statRows(){
@@ -1599,7 +1617,10 @@ function vcheck(c){
       if(on(c.b.id)&&!on(c.a.id)){c.type='sub';return vcheck(c);}return {err:'précise qui sort et qui entre'};}
     case 'sub':if(!on(c.b.id))return {err:lab(c.b)+' n\'est pas sur le terrain'};if(on(c.a.id))return {err:lab(c.a)+' est déjà sur le terrain'};
       if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est exclu'};return {ok:1,label:'Sort '+lab(c.b)+' · entre '+lab(c.a)};
-    case '2min':case 'red':case 'blue':if(linked())return {err:'exclusions gérées par Taguage live (liaison active)'};if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est déjà exclu'};
+    case '2min':case 'red':case 'blue':if(linked()){const pd=pendingTl().find(e=>c.type==='2min'?!e.dq:e.dq)||pendingTl()[0];
+      if(!pd)return {err:'exclusions gérées par Taguage live (liaison active)'};
+      if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est déjà exclu'};
+      c.assign=pd.tl;return {ok:1,label:'Exclusion Taguage live : '+lab(c.a)};}if(ex(c.a.id)||dq(c.a.id))return {err:lab(c.a)+' est déjà exclu'};
       return {ok:1,label:{'2min':'2 minutes','red':'Carton rouge','blue':'Carton bleu'}[c.type]+' : '+lab(c.a)};
   }
   return {err:'commande non reconnue'};
@@ -1612,8 +1633,8 @@ function vexec(c){
     case 'in':doEnter(c.a.id);break;
     case 'out':doLeave(c.a.id);break;
     case 'sub':doSwap(c.a.id,c.b.id);break;
-    case '2min':doTwoMin(c.a.id);break;
-    case 'red':case 'blue':doDisq(c.a.id,c.type);break;
+    case '2min':case 'red':case 'blue':if(c.assign){tlAssign(c.assign,c.a.id);break;}
+      if(c.type==='2min')doTwoMin(c.a.id);else doDisq(c.a.id,c.type);break;
   }
 }
 /* Essaie chaque transcription proposée (alternatives) et garde la première cohérente avec le match. */
@@ -2355,6 +2376,7 @@ function helpGuideHtml(){
     ['Tout est <b>enregistré en continu</b> sur l\'appareil, sans connexion.','<b>Exporter des effectifs</b> : vers un autre iPad / iPhone.','<b>Sauvegarde complète</b> : équipes + matchs.'])+
   (NATIVE?C(11,'Liaison Taguage live','<span class="hx-btn sm"><span class="ldot" data-c="vert"></span> Relié</span>'+hA+'<span class="hx-bub">9 pour 7</span>',
     ['Bouton <b>Relier</b> à côté de la période, puis l\'iPad Taguage live. Mémorisé, reconnexion automatique.','Relié : <b>chrono, période et exclusions</b> suivent Taguage live (Exclusion grisé). Tes entrées/sorties partent vers lui.',
+     'Exclusion reçue <b>sans numéro</b> : case « Qui ? » sur le terrain, touche-la puis le joueur (ou dis « 2 minutes 7 »).',
      'Voyant : <b>vert</b> relié · <b>orange</b> reconnexion ou envoi en attente · <b>rouge</b> coupure, tu as la main · <b>gris</b> désactivé.']):'')+
   '</div><p class="hfoot">Version '+APP_VERSION+' · <a href="#" id="hNews" style="color:var(--sky)">Nouveautés</a></p>';
 }
@@ -2468,11 +2490,22 @@ setInterval(()=>tlAlign(false),1000);
 /* ---------- Exclusions décidées par Taguage live ---------- */
 function plByNum(n){n=String(n==null?'':n).split('.')[0].trim();return S.roster.find(p=>String(p.num)===n)||null;}
 function tlExcl(pl,remS,tlId){/* pl : {player,type,remaining,id} */
-  const p=plByNum(pl.player);if(!p){toast('Liaison : exclusion du n°'+pl.player+' (joueur absent de l\'effectif)');return;}
+  const p=plByNum(pl.player);
   const blue=pl.type==='bleu'||pl.type==='blue';
+  if(!p){
+    /* Taguage live n'a pas indiqué le joueur (ou numéro inconnu ici) : l'infériorité s'affiche tout de suite
+       avec son décompte, et Temps de jeu désigne le joueur (toucher la case, bouton Exclusion ou « 2 minutes 7 »). */
+    commit();const m=S.m,red=blue||pl.type==='rouge'||pl.type==='red';
+    const rem=Math.max(0,Math.min(EXCL_MS,Math.round((remS!=null?remS:EXCL_MS/1000)*1000)));
+    const ex=m.excl.find(e=>e.tl===tlId);
+    if(ex){ex.rem=rem;}
+    else{m.excl.push({id:null,rem,dq:red,card:red?(blue?'blue':'red'):'',tl:tlId,w:Date.now()});
+      vBeep();toast((red?(blue?'Carton bleu':'Carton rouge'):'2 min')+' (Taguage live) : touche la case « Qui ? » puis le joueur exclu');}
+    m.excl=m.excl.filter(e=>e.rem>0);save();renderAll();linkPaint();return;
+  }
   commit();const m=S.m,s=st(p.id),red=blue||pl.type==='rouge'||pl.type==='red';
   const rem=Math.max(0,Math.min(EXCL_MS,Math.round((remS!=null?remS:EXCL_MS/1000)*1000)));
-  const ex=m.excl.find(e=>e.tl===tlId)||m.excl.find(e=>e.id===p.id);
+  const ex=m.excl.find(e=>e.tl===tlId&&e.id)||m.excl.find(e=>e.id===p.id);
   if(ex){ex.rem=rem;ex.tl=tlId;if(red)ex.dq=true;}
   else{
     if(m.on.includes(p.id)){leave(p.id);const L=S.link;if(L.courtSent)L.courtSent=courtNow();}  /* pas de « sub » renvoyé */
@@ -2481,9 +2514,25 @@ function tlExcl(pl,remS,tlId){/* pl : {player,type,remaining,id} */
     logEv(red?(blue?'blue':'red'):'2min',p.id);m.log[m.log.length-1].src='TL';
     toast((red?(blue?'Carton bleu':'Carton rouge'):'2 min')+' · '+p.num+'.'+p.name+' (Taguage live)');}
   m.excl=m.excl.filter(e=>e.rem>0);undo=[];save();renderAll();}
+/* Temps de jeu désigne le joueur d'une exclusion reçue sans numéro */
+function tlAssign(tl,pid){
+  commit();const m=S.m,e=m.excl.find(x=>x.tl===tl&&!x.id),p=P(pid);pick=null;
+  if(!e||!p){renderMatch(true);return;}
+  if(m.excl.some(x=>x.id===pid)||st(pid).dq){toast('Ce joueur est déjà exclu');renderMatch(true);return;}
+  pushUndo();
+  if(m.on.includes(pid))leave(pid);
+  const s=st(pid);
+  if(e.dq){s.dq=true;s.card=e.card||'red';}else s.twoMin++;
+  e.id=pid;
+  logEv(e.dq?(e.card==='blue'?'blue':'red'):'2min',pid,null,e.w);m.log[m.log.length-1].src='TL';
+  /* Taguage live apprend le numéro (événement facultatif, ignoré s'il ne le connaît pas) et le terrain à jour */
+  if(S.link&&S.link.on){linkPost('event',{kind:'exclusionPlayer',payload:{id:tl,player:String(p.num),label:p.num+'.'+p.name,type:e.dq?(e.card==='blue'?'bleu':'rouge'):'2min'},matchTime:gameMs()/1000,offline:!linked()});
+    linkCourtCheck(true);}
+  save();renderAll();linkPaint();toast((e.dq?'Carton':'2 min')+' : '+p.num+'.'+p.name);
+}
 function tlExclEnd(pl){const m=S.m,p=plByNum(pl.player);
   const n=m.excl.length;m.excl=m.excl.filter(e=>!(e.tl===pl.id||(p&&e.id===p.id&&e.tl)));
-  if(m.excl.length!==n){save();renderAll();}}
+  if(m.excl.length!==n){save();renderAll();linkPaint();}}
 function tlExclState(list){/* état complet envoyé par Taguage live (welcome) */
   const ids=new Set();(list||[]).forEach(x=>{ids.add(x.id);tlExcl(x,x.remaining,x.id);});
   const m=S.m,n=m.excl.length;m.excl=m.excl.filter(e=>!e.tl||ids.has(e.tl));if(m.excl.length!==n){save();renderAll();}}
@@ -2569,7 +2618,8 @@ function linkPaint(){const b=$('linkBtn');if(!b)return;b.hidden=!HB;if(!HB)retur
   $('linkLbl').textContent=S.link.on?(c==='vert'?'Relié':c==='rouge'?'Coupure':'Liaison…'):'Relier';
   b.title={vert:'Relié à Taguage live, horloges synchronisées',orange:LK.lostAt?'Reconnexion en cours':(linked()?(n?n+' message(s) en attente':'Synchronisation des horloges…'):'Recherche de Taguage live…'),
     rouge:'Coupure depuis plus de 10 s : Temps de jeu continue seul',gris:'Liaison désactivée'}[c];
-  const x=$('exclBtn');if(x){x.disabled=linked();x.title=linked()?'Exclusions gérées par Taguage live pendant la liaison':'';}}
+  const x=$('exclBtn');if(x){const pd=linked()?pendingTl().length:0;x.disabled=linked()&&!pd;x.classList.toggle('who',!!pd);
+    x.title=linked()?(pd?'Désigner le joueur exclu (exclusion reçue de Taguage live)':'Exclusions gérées par Taguage live pendant la liaison'):'';}}
 function linkListPaint(){const box=$('linkPeers');if(!box)return;const L=S.link;
   box.innerHTML=LK.peers.length?LK.peers.map(p=>'<button class="btn lpeer'+(p===L.peer&&L.on?' cur':'')+'" data-peer="'+esc(p)+'">'+(p===L.peer&&L.on?'● ':'')+esc(p)+'</button>').join('')
     :'<p class="hint-p">Recherche des iPads Taguage live… Vérifie que la liaison est activée dans Taguage live, et que les deux iPads ont le Wi-Fi et le Bluetooth activés (ou sont sur le réseau HB-SYNC).</p>';
@@ -2599,6 +2649,7 @@ linkPaint();
 
 /* ---------- Nouveautés : affichées au premier lancement après une mise à jour ---------- */
 const CHANGELOG=[
+  ['1.13.1','17 nov. 2026',['Relié à Taguage live : une exclusion reçue sans numéro affiche une case « Qui ? » qui clignote. Touche-la (ou le bouton Exclusion), puis le joueur exclu ; à la voix « 2 minutes 7 » marche aussi. Le numéro est renvoyé à Taguage live.']],
   ['1.13.0','17 nov. 2026',['Fin du temps : le chrono s\'arrête et l\'app reste dans la période ; le gros bouton affiche « → 2e MT » (ou la période suivante) pour passer quand elle est vraiment finie.',
     '« Terminer le match » : touche le nom de la période en haut (confirmation).',
     'Reliés à Taguage live : « → période suivante » et « Terminer le match » grisés, Taguage live décide ; ils reviennent en cas de coupure.',
