@@ -691,7 +691,7 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.13.1';
+const APP_VERSION='1.13.2';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -2649,6 +2649,7 @@ linkPaint();
 
 /* ---------- Nouveautés : affichées au premier lancement après une mise à jour ---------- */
 const CHANGELOG=[
+  ['1.13.2','24 nov. 2026',['Recopie de l\'écran (AirPlay vers Reflector, Apple TV, câble HDMI) : l\'écran de l\'iPad est maintenant recopié normalement, au lieu d\'une image figée de l\'app. Supprime aussi un risque d\'écrasement des données du match.']],
   ['1.13.1','17 nov. 2026',['Relié à Taguage live : une exclusion reçue sans numéro affiche une case « Qui ? » qui clignote. Touche-la (ou le bouton Exclusion), puis le joueur exclu ; à la voix « 2 minutes 7 » marche aussi. Le numéro est renvoyé à Taguage live.']],
   ['1.13.0','17 nov. 2026',['Fin du temps : le chrono s\'arrête et l\'app reste dans la période ; le gros bouton affiche « → 2e MT » (ou la période suivante) pour passer quand elle est vraiment finie.',
     '« Terminer le match » : touche le nom de la période en haut (confirmation).',
