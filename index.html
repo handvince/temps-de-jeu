@@ -691,7 +691,7 @@ nav.tabs .qm{display:inline-grid;place-items:center;width:28px;height:28px;borde
 <script>
 (function(){
 "use strict";
-const APP_VERSION='1.13.2';
+const APP_VERSION='1.13.3';
 const PERIODS=['1re MT','2e MT','Prol. 1','Prol. 2'];
 const POS=['GB','AG','ARG','DC','ARD','AD','PIV'];
 const KEY='temps-de-jeu-hand-v1';
@@ -2431,7 +2431,13 @@ function linkCourtCheck(force){const L=S.link;if(!L||!L.on)return;
   if(!force&&prev&&prev.length===now.length&&prev.every((x,i)=>x===now[i]))return;
   const out=prev?prev.filter(x=>!now.includes(x)):[],inn=prev?now.filter(x=>!prev.includes(x)):now.slice();
   L.courtSent=now;
-  linkPost('event',{kind:'sub',payload:{out,in:inn,onCourt:now},matchTime:gameMs()/1000,offline:!linked()});}
+  linkPost('event',{kind:'sub',payload:{out,in:inn,onCourt:now,players:linkPlayers()},matchTime:gameMs()/1000,offline:!linked()});}
+/* Effectif complet pour Taguage live : temps de jeu cumulé (ms) au matchTime du message, poste pour la pastille. */
+function linkPlayers(){
+  commit();
+  return S.roster.slice().sort((a,b)=>(+a.num||999)-(+b.num||999))
+    .map(p=>({num:String(p.num==null?'':p.num),name:String(p.name||''),pos:String(p.pos||''),time:Math.round(total(p.id))}));
+}
 setInterval(linkCourtCheck,250);
 
 /* ---------- Mesure du décalage (ping / pong, méthode NTP) ---------- */
@@ -2649,6 +2655,7 @@ linkPaint();
 
 /* ---------- Nouveautés : affichées au premier lancement après une mise à jour ---------- */
 const CHANGELOG=[
+  ['1.13.3','24 nov. 2026',['Liaison : Temps de jeu envoie à Taguage live le temps de jeu et le poste de chaque joueur à chaque changement.']],
   ['1.13.2','24 nov. 2026',['Recopie de l\'écran (AirPlay vers Reflector, Apple TV, câble HDMI) : l\'écran de l\'iPad est maintenant recopié normalement, au lieu d\'une image figée de l\'app. Supprime aussi un risque d\'écrasement des données du match.']],
   ['1.13.1','17 nov. 2026',['Relié à Taguage live : une exclusion reçue sans numéro affiche une case « Qui ? » qui clignote. Touche-la (ou le bouton Exclusion), puis le joueur exclu ; à la voix « 2 minutes 7 » marche aussi. Le numéro est renvoyé à Taguage live.']],
   ['1.13.0','17 nov. 2026',['Fin du temps : le chrono s\'arrête et l\'app reste dans la période ; le gros bouton affiche « → 2e MT » (ou la période suivante) pour passer quand elle est vraiment finie.',
